@@ -11,9 +11,7 @@ class TimeEncoder(nn.Module):
         :param parameter_requires_grad: boolean, whether the parameter in TimeEncoder needs gradient
         """
         super(TimeEncoder, self).__init__()
-
         self.time_dim=time_dim
-        # trainable parameters for time encoding
         self.w=nn.Linear(1,time_dim)
         self.w.weight=nn.Parameter((torch.from_numpy(1/10**np.linspace(0,9,time_dim,dtype=np.float32))).reshape(time_dim,-1))
         self.w.bias=nn.Parameter(torch.zeros(time_dim))

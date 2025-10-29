@@ -8,31 +8,6 @@ from typing_extensions import Literal
 class GraphUtils:
     class GraphManager:
         @staticmethod
-        def initialize_node_attr(graph:nx.DiGraph,source_id:int=0):
-            for node in graph.nodes():
-                if node==source_id:
-                    graph.nodes[node]['r']=1.0
-                    graph.nodes[node]['a']=0.0
-                else:
-                    graph.nodes[node]['r']=0.0
-                    graph.nodes[node]['a']=1.1
-                graph.nodes[node]['p']=node
-            GraphUtils.GraphManager.remap_node_predecessor_to_sorted_index(graph=graph)
-
-        @staticmethod
-        def get_node_attr_tensor(graph:nx.DiGraph,attr:str='x'):
-            match attr:
-                case 'r'|'a'|'pos':
-                    attr_array=np.array([graph.nodes[node_id][attr] for node_id in range(graph.number_of_nodes())],dtype=np.float32)
-                    attr_tensor=torch.tensor(attr_array,dtype=torch.float32)
-                    attr_tensor=attr_tensor.unsqueeze(-1)
-                case 'p':
-                    attr_array=np.array([graph.nodes[node_id][attr] for node_id in range(graph.number_of_nodes())],dtype=np.int64)
-                    attr_tensor=torch.tensor(attr_array,dtype=torch.int64)
-                    attr_tensor=attr_tensor.unsqueeze(-1)
-            return attr_tensor
-        
-        @staticmethod
         def get_event_stream_df(graph:nx.DiGraph):
             df=pd.DataFrame({
                 'src': pd.Series(dtype='int'), # source node
@@ -43,5 +18,37 @@ class GraphUtils:
                 time_list=data['t']
                 for timestamp in time_list:
                     df.loc[len(df)]=[u,v,timestamp]
-            df=df.sort_values(['ts'])
+            df=df.sort_values(['ts']).reset_index(drop=True)
             return df
+        
+        @staticmethod
+        def get_raw_node_feature(graph:nx.DiGraph,source_id:int=0):
+            raw_node_feature=torch.zeros((graph.number_of_nodes(),1),dtype=torch.float)
+            raw_node_feature[source_id]=1.0
+            return raw_node_feature
+
+        @staticmethod
+        def get_node_label_from_gamma(gamma:dict):
+            r_values=[gamma[node][0] for node in sorted(gamma.keys())]
+            label=torch.tensor(r_values,dtype=torch.float).view(-1, 1)
+            return label
+
+    class GraphAlgorithm:
+        @staticmethod
+        def compute_tR_one_pass_step(graph:nx.DiGraph,source_id:int=0,init:bool=False,edge_event_list:list=None,gamma:dict=None):
+            if init:
+                gamma={}
+                for node in graph.nodes():
+                    gamma[node]=[0.0,1.1] # [reachability,visited_time]
+                gamma[source_id]=[1.0,0.0]
+            else:
+                for edge_event in edge_event_list:
+                    # edge_event=(src,tar,ts)
+                    src=edge_event[0]
+                    tar=edge_event[1]
+                    ts=edge_event[2]
+                    if gamma[src][0]==1.0 and gamma[tar][0]==0.0:
+                        if gamma[src][1]<ts:
+                            gamma[tar][0]=1.0
+                            gamma[tar][1]=ts
+            return gamma
