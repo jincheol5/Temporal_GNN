@@ -22,7 +22,7 @@ class GraphUtils:
             return df
         
         @staticmethod
-        def get_raw_node_feature(graph:nx.DiGraph,source_id:int=0):
+        def get_node_raw_feature(graph:nx.DiGraph,source_id:int=0):
             raw_node_feature=torch.zeros((graph.number_of_nodes(),1),dtype=torch.float)
             raw_node_feature[source_id]=1.0
             return raw_node_feature
