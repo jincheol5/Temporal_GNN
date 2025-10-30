@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch_geometric.nn import MessagePassing
+
 
 class TimeEncoder(nn.Module):
     def __init__(self,time_dim:int,parameter_requires_grad:bool=True):
@@ -33,3 +35,24 @@ class TimeEncoder(nn.Module):
         output=torch.cos(self.w(timestamps))
 
         return output
+
+class GAT(MessagePassing):
+    def __init__(self,node_dim,latent_dim,aggr=None,num_head=1,is_final_layer=True):
+        super().__init__(aggr=aggr)
+
+    def message(self,x_i,x_j,index):
+        """
+        x_j: source node, [num_edges,node_feat_dim]
+        x_i: target node, [num_edges,node_feat_dim]
+        index: target node indices, [num_edges,]
+        """
+    
+    def aggregate(self,inputs,index):
+        """
+        inputs: [num_edges,num_head,latent_dim]
+        index:  target node indices, [num_edges,]
+        """
+    
+    def forward(self,x,edge_index):
+        h=self.propagate(edge_index=edge_index,x=x)
+        return h

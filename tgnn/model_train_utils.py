@@ -6,52 +6,49 @@ from graph_utils import GraphUtils
 
 class ModelTrainUtils:
     @staticmethod
-    def get_batch_dict_list(graph:nx.DiGraph,source_id:int=0,batch_size:int=1):
-        batch_dict_list=[]
-        df=GraphUtils.GraphManager.get_event_stream_df(graph=graph)
-        node_raw_feature=GraphUtils.GraphManager.get_node_raw_feature(graph=graph,source_id=source_id)
-        batch_label_list=ModelTrainUtils.compute_batch_label_list(graph=graph,df=df,source_id=source_id,batch_size=batch_size)
-        batch_df_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
-        for idx,batch_df in enumerate(batch_df_list):
-            batch_dict={}
-            last_row=batch_df.iloc[-1]
-            last_edge_event=(last_row.src,last_row.tar,last_row.ts)
-            sub_edge_index,sub_edge_timestamp=ModelTrainUtils.get_sub_edge_index_and_timestamp(df=df,edge_event=last_edge_event)
-            batch_dict['source_id']=source_id
-            batch_dict['x']=node_raw_feature
-            batch_dict['y']=batch_label_list[idx]
-            batch_dict['edge_index']=sub_edge_index
-            batch_dict['edge_timestamp']=sub_edge_timestamp
-            batch_dict_list.append(batch_dict)
-        return batch_dict_list
+    def get_batch_loader(graph:nx.DiGraph,source_id:int=0,batch_size:int=1):
+        num_nodes=graph.number_of_nodes()
+        df=GraphUtils.get_event_stream_df(graph=graph)
+        batch_row_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
 
-    @staticmethod
-    def get_sub_edge_index_and_timestamp(df:pd.DataFrame,edge_event:tuple):
-        src=edge_event[0]
-        tar=edge_event[1]
-        ts=edge_event[2]
-        mask=(df['src']==src)&(df['tar']==tar)&(df['ts']==ts)
-        target_idx=df.index[mask][0]
-        df_prev=df.iloc[:target_idx+1].copy()
-        df_latest=(
-            df_prev.drop_duplicates(subset=['src','tar'],keep='last').reset_index(drop=True)
-        )
-        edge_index=torch.tensor(df_latest[['src','tar']].values.T,dtype=torch.long) # [2,sub_E]
-        edge_timestamp=torch.tensor(df_latest['ts'].values,dtype=torch.float).view(-1, 1) # [sub_E,1]
-        return edge_index,edge_timestamp
-
-    @staticmethod
-    def compute_batch_label_list(graph:nx.DiGraph,df:pd.DataFrame,source_id:int=0,batch_size:int=1):
-        batch_df_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
+        batch_node_raw_feature_list=[]
+        batch_node_time_feature_list=[]
+        batch_neighbor_mask_list=[]
+        batch_target_node_list=[]
         batch_label_list=[]
 
         gamma=GraphUtils.GraphAlgorithm.compute_tR_one_pass_step(graph=graph,source_id=source_id,init=True)
-        for batch_df in batch_df_list:
-            edge_event_list=[]
-            for row in batch_df.itertuples():
+        for batch_row in batch_row_list:
+            
+            for row in batch_row.itertuples():
                 edge_event=(row.src,row.tar,row.ts)
-                edge_event_list.append(edge_event)
-            gamma=GraphUtils.GraphAlgorithm.compute_tR_one_pass_step(graph=graph,source_id=source_id,edge_event_list=edge_event_list,gamma=gamma)
-            batch_label=GraphUtils.GraphManager.get_node_label_from_gamma(gamma=gamma) # [N,1]
-            batch_label_list.append(batch_label)
-        return batch_label_list
+                
+                node_raw_feature=GraphUtils.get_node_raw_feature(num_nodes=num_nodes,source_id=source_id) # [N,1]
+                cur_node_time_feature=GraphUtils.get_node_time_feature(num_nodes=num_nodes,gamma=gamma) # [N,1]
+                node_time_feature=torch.abs(cur_node_time_feature-row.ts) # [N,1]
+                sub_edge_index=GraphUtils.get_sub_edge_index(df=df,edge_event=edge_event) # [2,sub_E]
+                neighbor_mask=GraphUtils.get_neighbor_node_mask(edge_index=sub_edge_index,target_node=row.tar,num_nodes=num_nodes) # [N,]
+                
+                # gamma update
+                gamma=GraphUtils.GraphAlgorithm.compute_tR_one_pass_step(graph=graph,source_id=source_id,edge_event=edge_event,gamma=gamma)
+
+                batch_node_raw_feature_list.append(node_raw_feature)
+                batch_node_time_feature_list.append(node_time_feature)
+                batch_neighbor_mask_list.append(neighbor_mask)
+                batch_target_node_list.append(row.tar)
+                batch_label_list.append(gamma[row.tar][0])
+
+        batch_node_raw_feature=torch.stack(batch_node_raw_feature_list,dim=0) # [batch_size,N,1]
+        batch_node_time_feature=torch.stack(batch_node_time_feature_list,dim=0) # [batch_size,N,1]
+        batch_neighbor_mask=torch.stack(batch_neighbor_mask_list,dim=0) # [batch_size,N,]
+        batch_target_node=torch.tensor(batch_target_node_list,dtype=torch.long) # [batch_size,sub_N,]
+        batch_label=torch.tensor(batch_label_list,dtype=torch.float32) # [batch_size,sub_N,]
+
+        batch_loader={}
+        batch_loader['x']=batch_node_raw_feature
+        batch_loader['t']=batch_node_time_feature
+        batch_loader['neighbor_mask']=batch_neighbor_mask
+        batch_loader['target_node']=batch_target_node
+        batch_loader['target_node_label']=batch_label
+
+        return batch_loader
