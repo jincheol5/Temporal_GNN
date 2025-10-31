@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import MessagePassing
 
 
 class TimeEncoder(nn.Module):
@@ -25,34 +24,50 @@ class TimeEncoder(nn.Module):
     def forward(self,timestamps:torch.Tensor):
         """
         compute time encodings of time in timestamps
-        :param timestamps: Tensor, shape (batch_size, seq_len)
-        :return:
+        Input:
+            timestamps: [batch_size,N,1]
+        Output:
+            updated_timestamps: [batch_size,N,time_dim]
         """
-        # Tensor,shape (batch_size, seq_len, 1)
-        timestamps=timestamps.unsqueeze(dim=2)
-
-        # Tensor,shape (batch_size, seq_len, time_dim)
-        output=torch.cos(self.w(timestamps))
-
+        output=torch.cos(self.w(timestamps)) # [batch_size,N,time_dim]
         return output
 
-class GAT(MessagePassing):
-    def __init__(self,node_dim,latent_dim,aggr=None,num_head=1,is_final_layer=True):
-        super().__init__(aggr=aggr)
+class Attention(nn.Module):
+    def __init__(self,node_dim,latent_dim):
+        super().__init__()
+        self.query_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.key_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.value_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.ffn=nn.Sequential(
+            nn.Linear(latent_dim+node_dim+latent_dim+latent_dim,latent_dim),
+            nn.ReLU(),
+            nn.Linear(latent_dim,latent_dim)
+        )
 
-    def message(self,x_i,x_j,index):
+    def forward(self,target,z,neighbor_mask):
         """
-        x_j: source node, [num_edges,node_feat_dim]
-        x_i: target node, [num_edges,node_feat_dim]
-        index: target node indices, [num_edges,]
+        Input:
+            target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
+            z: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+            neighbor_mask: [batch_size,N,], neighbor node mask
         """
-    
-    def aggregate(self,inputs,index):
-        """
-        inputs: [num_edges,num_head,latent_dim]
-        index:  target node indices, [num_edges,]
-        """
-    
-    def forward(self,x,edge_index):
-        h=self.propagate(edge_index=edge_index,x=x)
-        return h
+        feature_dim=target.size(1)
+
+        q=self.query_linear(target) # [batch_size,latent_dim]
+        k=self.key_linear(z) # [batch_size,N,latent_dim]
+        v=self.value_linear(z) # [batch_size,N,latent_dim]
+
+        q=q.unsqueeze(1) # [batch_size,1,latent_dim]
+        attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [batch_size,1,N]
+
+        neighbor_mask=neighbor_mask.unsqueeze(1) # [batch_size,1,N]
+        attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf')) # [batch_size,1,N]
+
+        attention_weight=F.softmax(attention_scores,dim=-1) # [batch_size,1,N]
+
+        neighbor_weight_sum=torch.matmul(attention_weight,v) # [batch_size,1,latent_dim]
+        neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [batch_size,latent_dim]
+
+        h_input=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
+        h_output=self.ffn(h_input) # [batch_size,latent_dim]
+        return h_output

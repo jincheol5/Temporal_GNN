@@ -48,7 +48,7 @@ class ModelTrainUtils:
         batch_loader['x']=batch_node_raw_feature
         batch_loader['t']=batch_node_time_feature
         batch_loader['neighbor_mask']=batch_neighbor_mask
-        batch_loader['target_node']=batch_target_node
-        batch_loader['target_node_label']=batch_label
+        batch_loader['target']=batch_target_node
+        batch_loader['label']=batch_label
 
         return batch_loader
