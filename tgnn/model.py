@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from modules import TimeEncoder,Attention
+from .modules import TimeEncoder,Attention
 
 class TGAT(nn.Module):
     def __init__(self,node_dim,latent_dim): 

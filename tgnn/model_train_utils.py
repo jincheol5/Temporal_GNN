@@ -1,7 +1,7 @@
 import numpy as np
 import networkx as nx
 import torch
-from graph_utils import GraphUtils
+from .graph_utils import GraphUtils
 
 
 class ModelTrainUtils:
