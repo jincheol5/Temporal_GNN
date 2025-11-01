@@ -73,9 +73,6 @@ class ModelTrainer:
 
     @staticmethod
     def test(model,graph_type,data_loader,config):
-        if config['mode']=='test':
-            model=TGAT(node_dim=1,latent_dim=config['latent_dim'])
-            model=DataUtils.DataLoader.load_model_parameter(model=model,model_name=config['model_name'])
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(device)
         model.eval()
