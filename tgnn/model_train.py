@@ -23,6 +23,7 @@ class ModelTrainer:
         """
         model train
         """
+        total_epoch_loss=[]
         for epoch in tqdm(range(config['epochs']),desc=f"Training..."):
             # wandb
             epoch_loss=[]
@@ -47,6 +48,7 @@ class ModelTrainer:
                 loss.backward()
                 optimizer.step()
 
+            total_epoch_loss.append(torch.stack(epoch_loss).mean().item())
             """
             Early stopping
             """
@@ -70,6 +72,8 @@ class ModelTrainer:
             validate
             """
             ModelTrainer.test(model=model,graph_type='all',data_loader=val_data_loader,config=config)
+        
+        return total_epoch_loss
 
     @staticmethod
     def test(model,graph_type,data_loader,config):

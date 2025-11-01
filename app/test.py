@@ -23,4 +23,6 @@ val_data_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=0,batch_s
 
 model=TGAT(node_dim=1,latent_dim=32)
 
-ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config)
+total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config)
+
+print(total_epoch_loss)
