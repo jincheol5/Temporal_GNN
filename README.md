@@ -1,2 +1,5 @@
-# Temporal_GNN
-Temporal GNN
+# TGNN
+Temporal GNN for temporal reachability
+- DyREP
+- TGAT
+- TGN
