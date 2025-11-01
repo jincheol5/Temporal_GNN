@@ -1,8 +1,7 @@
 import networkx as nx
-from model import TGAT
-from model_train import ModelTrainer
-from model_train_utils import ModelTrainUtils
-
+from tgnn import TGAT
+from tgnn import ModelTrainer
+from tgnn import ModelTrainUtils
 
 config={
     'optimizer':'adam',
