@@ -28,4 +28,4 @@ class Metrics:
         pred_label=(pred>=0.5).float()
         correct=(pred_label==label.float()).sum()
         acc=correct/label.size(0)
-        return acc
+        return acc.cpu().item()
