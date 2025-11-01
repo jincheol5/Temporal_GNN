@@ -83,7 +83,7 @@ class ModelTrainer:
         model test
         """
         with torch.no_grad():
-            for batch_dict in tqdm(data_loader,desc=f"{config['mode']} {graph_type} graph..."):
+            for batch_dict in tqdm(data_loader,desc=f"Evaluating..."):
                 batch_dict={k:v.to(device) for k,v in batch_dict.items()}
                 x=batch_dict['x'] # [batch_size,N,1]
                 t=batch_dict['t'] # [batch_size,N,1]
