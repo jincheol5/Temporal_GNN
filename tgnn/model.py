@@ -13,30 +13,34 @@ class TGAT(nn.Module):
     def forward(self,target,x,t,neighbor_mask):
         """
         Input:
-            target: [batch_size,1]
-            x: [batch_size,N,1]
-            t: [batch_size,N,1]
+            target: [batch_size,1], long
+            x: [batch_size,N,1], float
+            t: [batch_size,N,1], float
             neighbor_mask: [batch_size,N,], neighbor node mask
-            z: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
         Output:
             logit: [batch_size,1]
         """
         batch_size,num_nodes,_=x.size()
 
+        # target vector
+        batch_indices=torch.arange(batch_size,device=x.device) # [batch_size,]
+        target=target.squeeze(-1) # [batch_size,]
+        target_vec=x[batch_indices,target,:] # [batch_size,1]
+
         # target
         target_hidden_ft=torch.zeros((batch_size,self.latent_dim),dtype=torch.float,device=x.device) # [batch_size,latent_dim]
-        target=torch.cat([target,target_hidden_ft],dim=-1) # [batch_size,node_dim+latent_dim]
-        target_t=torch.zeros((batch_size,1),dtype=torch.float,device=x.device) # [batch_size,latent_dim]
+        target_vec=torch.cat([target_vec,target_hidden_ft],dim=-1) # [batch_size,node_dim+latent_dim]
+        target_t=torch.zeros((batch_size,1),dtype=torch.float,device=x.device) # [batch_size,1]
         encoded_target_t=self.time_encoder(target_t) # [batch_size,latent_dim]
-        target_z=torch.cat([target,encoded_target_t],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim]
+        target_h=torch.cat([target_vec,encoded_target_t],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim]
 
         # neighbor
         hidden_ft=torch.zeros((batch_size,num_nodes,self.latent_dim),dtype=torch.float,device=x.device) # [batch_size,N,latent_dim]
         x=torch.cat([x,hidden_ft],dim=-1) # [batch_size,N,node_dim+latent_dim]
         encoded_t=self.time_encoder(t) # [batch_size,N,latent_dim]
-        z=torch.cat([x,encoded_t],dim=-1) # [batch_size,N,node_dim+latent_dim+latent_dim]
+        h=torch.cat([x,encoded_t],dim=-1) # [batch_size,N,node_dim+latent_dim+latent_dim]
 
         # attention result
-        h=self.attention(target=target_z,z=z,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
+        h=self.attention(target=target_h,h=h,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
         logit=self.linear(h) # [batch_size,1]
         return logit

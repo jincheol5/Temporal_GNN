@@ -44,18 +44,20 @@ class Attention(nn.Module):
             nn.Linear(latent_dim,latent_dim)
         )
 
-    def forward(self,target,z,neighbor_mask):
+    def forward(self,target,h,neighbor_mask):
         """
         Input:
             target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
-            z: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+            h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
             neighbor_mask: [batch_size,N,], neighbor node mask
+        Output:
+            z: [batch_size,latent_dim]
         """
         feature_dim=target.size(1)
 
         q=self.query_linear(target) # [batch_size,latent_dim]
-        k=self.key_linear(z) # [batch_size,N,latent_dim]
-        v=self.value_linear(z) # [batch_size,N,latent_dim]
+        k=self.key_linear(h) # [batch_size,N,latent_dim]
+        v=self.value_linear(h) # [batch_size,N,latent_dim]
 
         q=q.unsqueeze(1) # [batch_size,1,latent_dim]
         attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [batch_size,1,N]
@@ -68,6 +70,59 @@ class Attention(nn.Module):
         neighbor_weight_sum=torch.matmul(attention_weight,v) # [batch_size,1,latent_dim]
         neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [batch_size,latent_dim]
 
-        h_input=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
-        h_output=self.ffn(h_input) # [batch_size,latent_dim]
-        return h_output
+        z=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
+        z=self.ffn(z) # [batch_size,latent_dim]
+        return z
+
+class MemoryUpdater(nn.Module):
+    def __init__(self,node_dim,latent_dim):
+        super().__init__()
+        self.src_mlp=nn.Sequential(
+            nn.Linear(in_features=latent_dim+latent_dim+latent_dim+node_dim,out_features=latent_dim),
+            nn.ReLU(),
+            nn.Linear(in_features=latent_dim,out_features=latent_dim)
+        )
+        self.tar_mlp=nn.Sequential(
+            nn.Linear(in_features=latent_dim+latent_dim+latent_dim+node_dim,out_features=latent_dim),
+            nn.ReLU(),
+            nn.Linear(in_features=latent_dim,out_features=latent_dim)
+        )
+        self.gru=nn.GRUCell(input_size=latent_dim,hidden_size=latent_dim)
+
+    def message_aggregate(self,source:torch.Tensor,target:torch.Tensor,source_msg:torch.Tensor,target_msg:torch.Tensor):
+        """
+        Input:
+            source: [batch_size,1]
+            target: [batch_size,1]
+            source_msg: [batch_size,latent_dim]
+            target_msg: [batch_size,latent_dim]
+        """
+
+    def forward(self,x,memory,source:torch.Tensor,target:torch.Tensor,delta_t:torch.Tensor):
+        """
+        Input:
+            x: [batch_size,N,1]
+            momory: [batch_size,N,latent_dim]
+            source: [batch_size,1]
+            target: [batch_size,1]
+            delta_t: [batch_size,N,latent_dim]
+        """
+        batch_size,num_nodes,_=x.size()
+        
+        source_batch_indices=torch.arange(batch_size,device=x.device) # [batch_size,]
+        source=source.squeeze(-1) # [batch_size,]
+        source_memory=memory[source_batch_indices,source,:] # [batch_size,latent_dim]
+        source_x=x[source_batch_indices,source,:] # [batch_size,1]
+        source_delta_t=delta_t[source_batch_indices,source,:] # [batch_size,latent_dim]
+        source_msg_input=torch.cat([source_memory,target_memory,source_delta_t,source_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+1]
+        source_msg=self.src_mlp(source_msg_input) # [batch_size,latent_dim]
+
+        target_batch_indices=torch.arange(batch_size,device=x.device)
+        target=target.squeeze(-1) # [batch_size,]
+        target_memory=memory[target_batch_indices,target,:] # [batch_size,latent_dim]
+        target_x=x[target_batch_indices,target,:] # [batch_size,1]
+        target_delta_t=delta_t[target_batch_indices,target,:] # [batch_size,latent_dim]
+        target_msg_input=torch.cat([target_memory,source_memory,target_delta_t,target_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+1]
+        target_msg=self.tar_mlp(target_msg_input) # [batch_size,latent_dim]
+
+        aggregated_msg=self.message_aggregate(source=source.unsqueeze(-1),target=target.unsqueeze(-1),source_msg=source_msg,target_msg=target_msg) # ?

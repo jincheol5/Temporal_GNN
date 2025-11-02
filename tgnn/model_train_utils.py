@@ -18,6 +18,7 @@ class ModelTrainUtils:
             batch_node_raw_feature_list=[]
             batch_node_time_feature_list=[]
             batch_neighbor_mask_list=[]
+            batch_source_node_list=[]
             batch_target_node_list=[]
             batch_label_list=[]
             for row in batch_row.itertuples():
@@ -35,21 +36,24 @@ class ModelTrainUtils:
                 batch_node_raw_feature_list.append(node_raw_feature)
                 batch_node_time_feature_list.append(node_time_feature)
                 batch_neighbor_mask_list.append(neighbor_mask)
+                batch_source_node_list.append(row.src)
                 batch_target_node_list.append(row.tar)
                 batch_label_list.append(gamma[row.tar][0])
 
             batch_node_raw_feature=torch.stack(batch_node_raw_feature_list,dim=0) # [batch_size,N,1]
             batch_node_time_feature=torch.stack(batch_node_time_feature_list,dim=0) # [batch_size,N,1]
             batch_neighbor_mask=torch.stack(batch_neighbor_mask_list,dim=0) # [batch_size,N,]
+            batch_source_node=torch.tensor(batch_source_node_list,dtype=torch.long).unsqueeze(-1) # [batch_size,1]
             batch_target_node=torch.tensor(batch_target_node_list,dtype=torch.long).unsqueeze(-1) # [batch_size,1]
             batch_label=torch.tensor(batch_label_list,dtype=torch.float32).unsqueeze(-1) # [batch_size,1]
 
             batch_dict={}
-            batch_dict['x']=batch_node_raw_feature
-            batch_dict['t']=batch_node_time_feature
-            batch_dict['neighbor_mask']=batch_neighbor_mask
-            batch_dict['target']=batch_target_node
-            batch_dict['label']=batch_label
+            batch_dict['x']=batch_node_raw_feature # [batch_size,N,1]
+            batch_dict['t']=batch_node_time_feature # [batch_size,N,1]
+            batch_dict['neighbor_mask']=batch_neighbor_mask # [batch_size,N,]
+            batch_dict['source']=batch_source_node # [batch_size,1]
+            batch_dict['target']=batch_target_node # [batch_size,1]
+            batch_dict['label']=batch_label # [batch_size,1]
 
             batch_loader.append(batch_dict)
         
