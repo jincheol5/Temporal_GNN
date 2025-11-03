@@ -57,12 +57,13 @@ class TGN(nn.Module):
     def forward(self,source,target,x,memory,t,neighbor_mask):
         """
         Input:
-            source: [batch_size,1], long
-            target: [batch_size,1], long
-            x: [batch_size,N,1], float
-            memory: [N,latent_dim], float 
-            t: [batch_size,N,1], float
-            neighbor_mask: [batch_size,N,], neighbor node mask
+            List of batch_dict:
+                source: [batch_size,1], long
+                target: [batch_size,1], long
+                x: [batch_size,N,1], float
+                memory: [N,latent_dim], float 
+                t: [batch_size,N,1], float
+                neighbor_mask: [batch_size,N,], neighbor node mask
         Output:
             logit: [batch_size,1]
         """
