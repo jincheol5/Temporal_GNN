@@ -70,7 +70,7 @@ class TGN(nn.Module):
         """
         logit_list=[]
         num_nodes=batch_list[0]['x'].size(1)
-        memory=torch.zeros(num_nodes,self.latent_dim,dtype=torch.float32,device=batch_list[0]['x'].device)
+        memory=torch.zeros(num_nodes,self.latent_dim,dtype=torch.float32,device=device)
         for batch in batch_list:
             batch={k:v.to(device) for k,v in batch.items()}
             source=batch['source'] # [batch_size,1], long
