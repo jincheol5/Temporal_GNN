@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torch_scatter import scatter_mean
 
 class TimeEncoder(nn.Module):
     def __init__(self,time_dim:int,parameter_requires_grad:bool=True):
@@ -96,33 +96,52 @@ class MemoryUpdater(nn.Module):
             target: [batch_size,1]
             source_msg: [batch_size,latent_dim]
             target_msg: [batch_size,latent_dim]
+        Output:
+            aggregated_msg: [unique_node_size,latent_dim]
         """
+        src_tar_nodes=torch.cat([source,target],dim=0).squeeze(-1) # [2*batch_size,]
+        src_tar_msg=torch.cat([source_msg,target_msg],dim=0)  # [2*batch_size,latent_dim]
+        unique_nodes,inverse_indices=torch.unique(src_tar_nodes,return_inverse=True) # [unique_node_size,],[2*batch_size]
+        aggregated_msg=scatter_mean(src=src_tar_msg,index=inverse_indices,dim=0)  # [unique_node_size,latent_dim]
+        return unique_nodes,aggregated_msg # [unique_node_size,],[unique_node_size,latent_dim]
 
     def forward(self,x,memory,source:torch.Tensor,target:torch.Tensor,delta_t:torch.Tensor):
         """
         Input:
             x: [batch_size,N,1]
-            momory: [batch_size,N,latent_dim]
+            memory: [N,latent_dim]
             source: [batch_size,1]
             target: [batch_size,1]
             delta_t: [batch_size,N,latent_dim]
+        Output:
+            updated_memory
         """
-        batch_size,num_nodes,_=x.size()
+        batch_size,_,_=x.size()
         
         source_batch_indices=torch.arange(batch_size,device=x.device) # [batch_size,]
         source=source.squeeze(-1) # [batch_size,]
-        source_memory=memory[source_batch_indices,source,:] # [batch_size,latent_dim]
+        source_memory=memory[source] # [batch_size,latent_dim]
         source_x=x[source_batch_indices,source,:] # [batch_size,1]
         source_delta_t=delta_t[source_batch_indices,source,:] # [batch_size,latent_dim]
-        source_msg_input=torch.cat([source_memory,target_memory,source_delta_t,source_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+1]
+        source_msg_input=torch.cat([source_memory,target_memory,source_delta_t,source_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+node_dim]
         source_msg=self.src_mlp(source_msg_input) # [batch_size,latent_dim]
 
         target_batch_indices=torch.arange(batch_size,device=x.device)
         target=target.squeeze(-1) # [batch_size,]
-        target_memory=memory[target_batch_indices,target,:] # [batch_size,latent_dim]
+        target_memory=memory[target] # [batch_size,latent_dim]
         target_x=x[target_batch_indices,target,:] # [batch_size,1]
         target_delta_t=delta_t[target_batch_indices,target,:] # [batch_size,latent_dim]
         target_msg_input=torch.cat([target_memory,source_memory,target_delta_t,target_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+1]
         target_msg=self.tar_mlp(target_msg_input) # [batch_size,latent_dim]
 
-        aggregated_msg=self.message_aggregate(source=source.unsqueeze(-1),target=target.unsqueeze(-1),source_msg=source_msg,target_msg=target_msg) # ?
+        unique_nodes,aggregated_msg=self.message_aggregate(
+            source=source.unsqueeze(-1),
+            target=target.unsqueeze(-1),
+            source_msg=source_msg,
+            target_msg=target_msg) # [unique_node_size,],[unique_node_size,latent_dim]
+        
+        pre_memory=memory[unique_nodes] # [unique_node_size,latent_dim]
+        new_memory=self.gru(aggregated_msg,pre_memory) # [unique_node_size,latent_dim]
+        memory[unique_nodes]=new_memory # [N,latent_dim]
+
+        return memory # [N,latent_dim]

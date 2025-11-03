@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .modules import TimeEncoder,Attention
+from .modules import TimeEncoder,MemoryUpdater,Attention
 
 class TGAT(nn.Module):
     def __init__(self,node_dim,latent_dim): 
@@ -41,6 +41,61 @@ class TGAT(nn.Module):
         h=torch.cat([x,encoded_t],dim=-1) # [batch_size,N,node_dim+latent_dim+latent_dim]
 
         # attention result
-        h=self.attention(target=target_h,h=h,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
-        logit=self.linear(h) # [batch_size,1]
+        z=self.attention(target=target_h,h=h,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
+        logit=self.linear(z) # [batch_size,1]
         return logit
+
+class TGN(nn.Module):
+    def __init__(self,node_dim,latent_dim): 
+        super().__init__()
+        self.time_encoder=TimeEncoder(time_dim=latent_dim)
+        self.memory_updater=MemoryUpdater(node_dim=node_dim,latent_dim=latent_dim)
+        self.attention=Attention(node_dim=node_dim,latent_dim=latent_dim)
+        self.linear=nn.Linear(in_features=latent_dim,out_features=1)
+        self.latent_dim=latent_dim
+
+    def forward(self,source,target,x,memory,t,neighbor_mask):
+        """
+        Input:
+            source: [batch_size,1], long
+            target: [batch_size,1], long
+            x: [batch_size,N,1], float
+            memory: [N,latent_dim], float 
+            t: [batch_size,N,1], float
+            neighbor_mask: [batch_size,N,], neighbor node mask
+        Output:
+            logit: [batch_size,1]
+        """
+        """
+        1. update memory
+        """
+        delta_t=self.time_encoder(t) # [batch_size,N,latent_dim]
+        updated_memory=self.memory_updater(x=x,memory=memory,source=source,target=target,delta_t=delta_t) # [N,latent_dim]
+
+        """
+        2. embedding
+        """
+        batch_size,_,_=x.size()
+        
+        # target vector
+        batch_indices=torch.arange(batch_size,device=x.device) # [batch_size,]
+        target=target.squeeze(-1) # [batch_size,]
+        target_vec=x[batch_indices,target,:] # [batch_size,1]
+
+        # target
+        target_hidden_ft=updated_memory[target] # [batch_size,latent_dim]
+        target_vec=torch.cat([target_vec,target_hidden_ft],dim=-1) # [batch_size,node_dim+latent_dim]
+        target_t=torch.zeros((batch_size,1),dtype=torch.float,device=x.device) # [batch_size,1]
+        encoded_target_t=self.time_encoder(target_t) # [batch_size,latent_dim]
+        target_h=torch.cat([target_vec,encoded_target_t],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim]
+
+        # neighbor
+        hidden_ft=updated_memory.unsqueeze(0).expand(batch_size,-1,-1) # [batch_size,N,latent_dim]
+        x=torch.cat([x,hidden_ft],dim=-1) # [batch_size,N,node_dim+latent_dim]
+        encoded_t=self.time_encoder(t) # [batch_size,N,latent_dim]
+        h=torch.cat([x,encoded_t],dim=-1) # [batch_size,N,node_dim+latent_dim+latent_dim]
+
+        # attention result
+        z=self.attention(target=target_h,h=h,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
+        logit=self.linear(z) # [batch_size,1]
+        return updated_memory,logit

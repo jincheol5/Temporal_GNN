@@ -1,14 +1,25 @@
 import networkx as nx
-from tgnn import TGAT
+from tgnn import TGAT,TGN
 from tgnn import ModelTrainer
 from tgnn import ModelTrainUtils
 
-config={
+config_TGAT={
     'optimizer':'adam',
     'epochs':10,
     'early_stop':1,
     'patience':5,
     'lr':0.0005,
+    'memory':0,
+    'wandb':0
+}
+
+config_TGN={
+    'optimizer':'adam',
+    'epochs':10,
+    'early_stop':1,
+    'patience':5,
+    'lr':0.0005,
+    'memory':1,
     'wandb':0
 }
 
@@ -21,8 +32,16 @@ graph.add_edge(2,3,t=[0.5,0.6])
 train_data_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=0,batch_size=2)
 val_data_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=0,batch_size=2)
 
-model=TGAT(node_dim=1,latent_dim=32)
+"""
+TGAT
+"""
+# model=TGAT(node_dim=1,latent_dim=32)
+# total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGAT)
+# print(total_epoch_loss)
 
-total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config)
-
+"""
+TGN
+"""
+model=TGN(node_dim=1,latent_dim=32)
+total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGN)
 print(total_epoch_loss)
