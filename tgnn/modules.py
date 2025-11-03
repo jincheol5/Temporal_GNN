@@ -123,14 +123,16 @@ class MemoryUpdater(nn.Module):
         source_memory=memory[source] # [batch_size,latent_dim]
         source_x=x[source_batch_indices,source,:] # [batch_size,1]
         source_delta_t=delta_t[source_batch_indices,source,:] # [batch_size,latent_dim]
-        source_msg_input=torch.cat([source_memory,target_memory,source_delta_t,source_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+node_dim]
-        source_msg=self.src_mlp(source_msg_input) # [batch_size,latent_dim]
-
+        
         target_batch_indices=torch.arange(batch_size,device=x.device)
         target=target.squeeze(-1) # [batch_size,]
         target_memory=memory[target] # [batch_size,latent_dim]
         target_x=x[target_batch_indices,target,:] # [batch_size,1]
         target_delta_t=delta_t[target_batch_indices,target,:] # [batch_size,latent_dim]
+
+        source_msg_input=torch.cat([source_memory,target_memory,source_delta_t,source_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+node_dim]
+        source_msg=self.src_mlp(source_msg_input) # [batch_size,latent_dim]
+
         target_msg_input=torch.cat([target_memory,source_memory,target_delta_t,target_x],dim=-1) # [batch_size,latent_dim+latent_dim+latent_dim+1]
         target_msg=self.tar_mlp(target_msg_input) # [batch_size,latent_dim]
 
