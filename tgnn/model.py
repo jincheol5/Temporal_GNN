@@ -54,7 +54,7 @@ class TGN(nn.Module):
         self.linear=nn.Linear(in_features=latent_dim,out_features=1)
         self.latent_dim=latent_dim
 
-    def forward(self,batch_list):
+    def forward(self,batch_list,device):
         """
         Input:
             List of batch_dict:
@@ -64,6 +64,7 @@ class TGN(nn.Module):
                 memory: [N,latent_dim], float 
                 t: [batch_size,N,1], float
                 neighbor_mask: [batch_size,N,], neighbor node mask
+            device: GPU
         Output:
             logit: [seq_len,batch_size,1]
         """
@@ -71,6 +72,7 @@ class TGN(nn.Module):
         num_nodes=batch_list[0]['x'].size(1)
         memory=torch.zeros(num_nodes,self.latent_dim,dtype=torch.float32,device=batch_list[0]['x'].device)
         for batch in batch_list:
+            batch={k:v.to(device) for k,v in batch.items()}
             source=batch['source'] # [batch_size,1], long
             target=batch['target'] # [batch_size,1], long
             x=batch['x'] # [batch_size,N,1], float

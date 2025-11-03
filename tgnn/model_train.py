@@ -80,12 +80,6 @@ class ModelTrainer:
         optimizer=torch.optim.Adam(model.parameters(),lr=config['lr']) if config['optimizer']=='adam' else torch.optim.SGD(model.parameters(),lr=config['lr'])
 
         """
-        data_loader to GPU device
-        """
-        for batch in train_data_loader:
-            batch={k:v.to(device) for k,v in batch.items()}
-
-        """
         Early stopping
         """
         if config['early_stop']:
@@ -101,7 +95,7 @@ class ModelTrainer:
             label_list=[batch['label'] for batch in train_data_loader]
             label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
 
-            pred_logit=model(batch_list=train_data_loader) # [seq_len,batch_size,1]
+            pred_logit=model(batch_list=train_data_loader,device=device) # [seq_len,batch_size,1]
             loss=Metrics.compute_tR_loss(logit=pred_logit,label=label)
             loss_list.append(loss)
 
@@ -143,19 +137,13 @@ class ModelTrainer:
         model.eval()
 
         """
-        data_loader to GPU device
-        """
-        for batch in data_loader:
-            batch={k:v.to(device) for k,v in batch.items()}
-
-        """
         model test
         """
         with torch.no_grad():
             label_list=[batch['label'] for batch in data_loader]
             label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
 
-            pred_logit=model(batch_list=data_loader) # [seq_len,batch_size,1]
+            pred_logit=model(batch_list=data_loader,device=device) # [seq_len,batch_size,1]
             acc=Metrics.compute_tR_acc(logit=pred_logit,label=label)
         print(f"{graph_type} graph tR acc: {acc}")
         return acc
