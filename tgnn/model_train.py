@@ -94,6 +94,7 @@ class ModelTrainer:
             
             label_list=[batch['label'] for batch in train_data_loader]
             label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
+            label=label.to(device)
 
             pred_logit=model(batch_list=train_data_loader,device=device) # [seq_len,batch_size,1]
             loss=Metrics.compute_tR_loss(logit=pred_logit,label=label)
@@ -142,6 +143,7 @@ class ModelTrainer:
         with torch.no_grad():
             label_list=[batch['label'] for batch in data_loader]
             label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
+            label=label.to(device)
 
             pred_logit=model(batch_list=data_loader,device=device) # [seq_len,batch_size,1]
             acc=Metrics.compute_tR_acc(logit=pred_logit,label=label)
