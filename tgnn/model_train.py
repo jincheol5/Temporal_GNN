@@ -80,6 +80,12 @@ class ModelTrainer:
         optimizer=torch.optim.Adam(model.parameters(),lr=config['lr']) if config['optimizer']=='adam' else torch.optim.SGD(model.parameters(),lr=config['lr'])
 
         """
+        data_loader to GPU device
+        """
+        for batch in train_data_loader:
+            batch={k:v.to(device) for k,v in batch.items()}
+
+        """
         Early stopping
         """
         if config['early_stop']:
@@ -92,7 +98,7 @@ class ModelTrainer:
         for epoch in tqdm(range(config['epochs']),desc=f"Training..."):
             model.train()
             
-            label_list=[batch_dict['label'] for batch_dict in train_data_loader]
+            label_list=[batch['label'] for batch in train_data_loader]
             label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
 
             pred_logit=model(batch_list=train_data_loader) # [seq_len,batch_size,1]
@@ -137,10 +143,16 @@ class ModelTrainer:
         model.eval()
 
         """
+        data_loader to GPU device
+        """
+        for batch in data_loader:
+            batch={k:v.to(device) for k,v in batch.items()}
+
+        """
         model test
         """
         with torch.no_grad():
-            label_list=[batch_dict['label'] for batch_dict in data_loader]
+            label_list=[batch['label'] for batch in data_loader]
             label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
 
             pred_logit=model(batch_list=data_loader) # [seq_len,batch_size,1]
