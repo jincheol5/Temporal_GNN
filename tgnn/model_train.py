@@ -88,49 +88,27 @@ class ModelTrainer:
         """
         model train
         """
-        first_batch_dict=train_data_loader[0]
-        num_nodes=first_batch_dict['x'].size(1)
-        total_epoch_loss=[]
+        loss_list=[]
         for epoch in tqdm(range(config['epochs']),desc=f"Training..."):
-            # memory
-            memory=torch.zeros(num_nodes,config['latent_dim'],dtype=torch.float32,device=device)
-
-            # wandb
-            epoch_loss=[]
             model.train()
-            for batch_dict in tqdm(train_data_loader,desc=f"Epoch {epoch+1}..."):
-                batch_dict={k:v.to(device) for k,v in batch_dict.items()}
-                x=batch_dict['x'] # [batch_size,N,1]
-                t=batch_dict['t'] # [batch_size,N,1]
-                neighbor_mask=batch_dict['neighbor_mask'] # [batch_size,N,]
-                source=batch_dict['source'] # [batch_size,1]
-                target=batch_dict['target'] # [batch_size,1]
-                label=batch_dict['label'] # [batch_size,1]
+            
+            label_list=[batch_dict['label'] for batch_dict in train_data_loader]
+            label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
 
-                if config['memory']:
-                    updated_memory,pred_logit=model(source=source,target=target,x=x,memory=memory,t=t,neighbor_mask=neighbor_mask) # [batch_size,1]
-                else:
-                    pred_logit=model(target=target,x=x,t=t,neighbor_mask=neighbor_mask) # [batch_size,1]
-                loss=Metrics.compute_tR_loss(logit=pred_logit,label=label)
+            pred_logit=model(batch_list=train_data_loader) # [seq_len,batch_size,1]
+            loss=Metrics.compute_tR_loss(logit=pred_logit,label=label)
+            loss_list.append(loss)
 
-                # wandb
-                epoch_loss.append(loss)
+            # back propagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-                # back propagation
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                # set next memory
-                if config['memory']:
-                    memory=updated_memory
-
-            total_epoch_loss.append(torch.stack(epoch_loss).mean().item())
             """
             Early stopping
             """
             if config['early_stop']:
-                val_loss=torch.stack(epoch_loss).mean().item()
+                val_loss=loss.item()
                 pre_model=early_stop(val_loss=val_loss,model=model)
                 if early_stop.early_stop:
                     model=pre_model
@@ -142,15 +120,15 @@ class ModelTrainer:
             """
             if config['wandb']:
                 wandb.log({
-                    f"loss":torch.stack(epoch_loss).mean().item(),
+                    f"loss":loss.item(),
                 },step=epoch)
             
             """
             validate
             """
             ModelTrainer.test(model=model,graph_type='all',data_loader=val_data_loader,config=config)
-        
-        return total_epoch_loss
+
+        return loss_list
 
     @staticmethod
     def test(model,graph_type,data_loader,config):
@@ -158,43 +136,14 @@ class ModelTrainer:
         model.to(device)
         model.eval()
 
-        acc_list=[]
-
         """
         model test
         """
-        # memory
-        first_batch_dict=data_loader[0]
-        num_nodes=first_batch_dict['x'].size(1)
-        memory=torch.zeros(num_nodes,config['latent_dim'],dtype=torch.float32,device=device)
         with torch.no_grad():
-            for batch_dict in tqdm(data_loader,desc=f"Evaluating..."):
-                batch_dict={k:v.to(device) for k,v in batch_dict.items()}
-                x=batch_dict['x'] # [batch_size,N,1]
-                t=batch_dict['t'] # [batch_size,N,1]
-                neighbor_mask=batch_dict['neighbor_mask'] # [batch_size,N,]
-                source=batch_dict['source'] # [batch_size,1]
-                target=batch_dict['target'] # [batch_size,1]
-                label=batch_dict['label'] # [batch_size,1]
+            label_list=[batch_dict['label'] for batch_dict in data_loader]
+            label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
 
-                if config['memory']:
-                    updated_memory,pred_logit=model(source=source,target=target,x=x,memory=memory,t=t,neighbor_mask=neighbor_mask) # [batch_size,1]
-                else:
-                    pred_logit=model(target=target,x=x,t=t,neighbor_mask=neighbor_mask) # [batch_size,1]
-
-                acc=Metrics.compute_tR_acc(logit=pred_logit,label=label)
-                acc_list.append(acc)
-
-                # set next memory
-                if config['memory']:
-                    memory=updated_memory
-
-        """
-        acc
-        """
-        acc_mean=np.mean(acc_list)
-        print(f"{graph_type} graph tR acc: {acc_mean}")
-
-        return acc_mean
-    
-    
+            pred_logit=model(batch_list=data_loader) # [seq_len,batch_size,1]
+            acc=Metrics.compute_tR_acc(logit=pred_logit,label=label)
+        print(f"{graph_type} graph tR acc: {acc}")
+        return acc
