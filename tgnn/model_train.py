@@ -2,10 +2,8 @@ import wandb
 import torch
 import numpy as np
 from tqdm import tqdm
-from .model import TGAT
 from .model_train_utils import EarlyStopping
 from .metrics import Metrics
-from .data_utils import DataUtils
 
 class ModelTrainer:
     @staticmethod

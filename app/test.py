@@ -10,6 +10,7 @@ config_TGAT={
     'patience':5,
     'lr':0.0005,
     'memory':0,
+    'latent_dim':32,
     'wandb':0
 }
 
@@ -20,6 +21,7 @@ config_TGN={
     'patience':5,
     'lr':0.0005,
     'memory':1,
+    'latent_dim':32,
     'wandb':0
 }
 
@@ -35,13 +37,13 @@ val_data_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=0,batch_s
 """
 TGAT
 """
-# model=TGAT(node_dim=1,latent_dim=32)
+# model=TGAT(node_dim=1,latent_dim=config_TGAT['latent_dim'])
 # total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGAT)
 # print(total_epoch_loss)
 
 """
 TGN
 """
-model=TGN(node_dim=1,latent_dim=32)
+model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'])
 total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGN)
 print(total_epoch_loss)
