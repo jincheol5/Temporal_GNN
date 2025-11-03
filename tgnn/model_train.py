@@ -98,7 +98,7 @@ class ModelTrainer:
 
             pred_logit=model(batch_list=train_data_loader,device=device) # [seq_len,batch_size,1]
             loss=Metrics.compute_tR_loss(logit=pred_logit,label=label)
-            loss_list.append(loss)
+            loss_list.append(loss.item())
 
             # back propagation
             optimizer.zero_grad()
@@ -127,12 +127,12 @@ class ModelTrainer:
             """
             validate
             """
-            ModelTrainer.test(model=model,graph_type='all',data_loader=val_data_loader,config=config)
-
+            acc=ModelTrainer.test(model=model,data_loader=val_data_loader,config=config)
+            print(f"{epoch+1} tR validation acc: {acc}")
         return loss_list
 
     @staticmethod
-    def test(model,graph_type,data_loader,config):
+    def test(model,data_loader,config):
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(device)
         model.eval()
@@ -147,5 +147,4 @@ class ModelTrainer:
 
             pred_logit=model(batch_list=data_loader,device=device) # [seq_len,batch_size,1]
             acc=Metrics.compute_tR_acc(logit=pred_logit,label=label)
-        print(f"{graph_type} graph tR acc: {acc}")
         return acc
