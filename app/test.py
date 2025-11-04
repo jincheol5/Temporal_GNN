@@ -44,8 +44,8 @@ TGAT
 """
 TGN: time,attn,sum
 """
-model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='time')
+# model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='time')
 # model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='attn')
-# model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='sum')
+model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='sum')
 total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGN)
 print(total_epoch_loss)
