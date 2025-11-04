@@ -109,7 +109,8 @@ class TemporalGraphSum(nn.Module):
             z: [batch_size,latent_dim]
         """
         h=self.w_1(h) # [batch_size,N,latent_dim] 
-        h_hat=h[neighbor_mask].sum(dim=1) # [batch_size,latent_dim] 
+        expanded_neighbor_mask=neighbor_mask.unsqueeze(-1).float() # [batch_size,N,1]
+        h_hat=(h*expanded_neighbor_mask).sum(dim=1) # [batch_size,latent_dim]
         h_hat=self.relu(h_hat) # [batch_size,latent_dim] 
         z=torch.cat([target,h_hat],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim+latent_dim]
         z=self.w_2(z) # [batch_size,latent_dim]
