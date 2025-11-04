@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
-from .modules import TimeEncoder,MemoryUpdater,Attention
+from typing_extensions import Literal
+from .modules import TimeEncoder,MemoryUpdater,TimeProjection,TemporalGraphAttention,TemporalGraphSum
 
 class TGAT(nn.Module):
     def __init__(self,node_dim,latent_dim): 
         super().__init__()
         self.time_encoder=TimeEncoder(time_dim=latent_dim)
-        self.attention=Attention(node_dim=node_dim,latent_dim=latent_dim)
+        self.attention=TemporalGraphAttention(node_dim=node_dim,latent_dim=latent_dim)
         self.linear=nn.Linear(in_features=latent_dim,out_features=1)
         self.latent_dim=latent_dim
 
@@ -64,13 +65,20 @@ class TGAT(nn.Module):
         return output # [seq_len,batch_size,1]
 
 class TGN(nn.Module):
-    def __init__(self,node_dim,latent_dim): 
+    def __init__(self,node_dim,latent_dim,emb:Literal['time','attn','sum']): 
         super().__init__()
         self.time_encoder=TimeEncoder(time_dim=latent_dim)
         self.memory_updater=MemoryUpdater(node_dim=node_dim,latent_dim=latent_dim)
-        self.attention=Attention(node_dim=node_dim,latent_dim=latent_dim)
+        match emb:
+            case 'time':
+                self.embedding=TimeProjection(latent_dim=latent_dim)
+            case 'attn':
+                self.embedding=TemporalGraphAttention(node_dim=node_dim,latent_dim=latent_dim)
+            case 'sum':
+                self.embedding=TemporalGraphSum(node_dim=node_dim,latent_dim=latent_dim)
         self.linear=nn.Linear(in_features=latent_dim,out_features=1)
         self.latent_dim=latent_dim
+        self.emb=emb
 
     def forward(self,batch_list,device):
         """
@@ -127,7 +135,14 @@ class TGN(nn.Module):
             h=torch.cat([x,encoded_t],dim=-1) # [batch_size,N,node_dim+latent_dim+latent_dim]
 
             # attention result
-            z=self.attention(target=target_h,h=h,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
+            match self.emb:
+                case 'time':
+                    target_memory=updated_memory[target] # [batch_size,latent_dim]
+                    delta_t=t[batch_indices,target,:] # [batch_size,1]
+                    z=self.embedding(target_memory=target_memory,delta_t=delta_t) # [batch_size,latent_dim]
+                case 'attn'|'sum':
+                    z=self.embedding(target=target_h,h=h,neighbor_mask=neighbor_mask) # [batch_size,latent_dim]
+
             logit=self.linear(z) # [batch_size,1]
 
             logit_list.append(logit)

@@ -32,7 +32,25 @@ class TimeEncoder(nn.Module):
         output=torch.cos(self.w(timestamps)) # [batch_size,N,time_dim]
         return output
 
-class Attention(nn.Module):
+class TimeProjection(nn.Module):
+    def __init__(self,latent_dim):
+        super().__init__()
+        self.w=nn.Linear(in_features=1,out_features=latent_dim)
+
+    def forward(self,target_memory,delta_t):
+        """
+        Input:
+            target_memory: [batch_size,latent_dim]
+            delta_t: [batch_size,1]
+        Output:
+            z: [batch_size,latent_dim]
+        """
+        delta_t_vec=self.w(delta_t) # [batch_size,latent_dim]
+        delta_t_vec=delta_t_vec+1 # [batch_size,latent_dim]
+        z=torch.mul(delta_t_vec,target_memory) # [batch_size,latent_dim]
+        return z
+
+class TemporalGraphAttention(nn.Module):
     def __init__(self,node_dim,latent_dim):
         super().__init__()
         self.query_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
@@ -73,6 +91,29 @@ class Attention(nn.Module):
         z=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
         z=self.ffn(z) # [batch_size,latent_dim]
         return z
+
+class TemporalGraphSum(nn.Module):
+    def __init__(self,node_dim,latent_dim):
+        super().__init__()
+        self.w_1=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.w_2=nn.Linear(in_features=node_dim+latent_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.relu=nn.ReLU()
+
+    def forward(self,target,h,neighbor_mask):
+        """
+        Input:
+            target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
+            h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+            neighbor_mask: [batch_size,N,], neighbor node mask
+        Output:
+            z: [batch_size,latent_dim]
+        """
+        h=self.w_1(h) # [batch_size,N,latent_dim] 
+        h_hat=h[neighbor_mask].sum(dim=1) # [batch_size,latent_dim] 
+        h_hat=self.relu(h_hat) # [batch_size,latent_dim] 
+        z=torch.cat([target,h_hat],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim+latent_dim]
+        z=self.w_2(z) # [batch_size,latent_dim]
+        return z # [batch_size,latent_dim]
 
 class MemoryUpdater(nn.Module):
     def __init__(self,node_dim,latent_dim):
@@ -147,3 +188,4 @@ class MemoryUpdater(nn.Module):
         memory[unique_nodes]=new_memory # [N,latent_dim]
 
         return memory # [N,latent_dim]
+

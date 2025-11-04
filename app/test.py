@@ -37,13 +37,15 @@ val_data_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=0,batch_s
 """
 TGAT
 """
-model=TGAT(node_dim=1,latent_dim=config_TGAT['latent_dim'])
-total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGAT)
-print(total_epoch_loss)
+# model=TGAT(node_dim=1,latent_dim=config_TGAT['latent_dim'])
+# total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGAT)
+# print(total_epoch_loss)
 
 """
-TGN
+TGN: time,attn,sum
 """
-# model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'])
-# total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGN)
-# print(total_epoch_loss)
+model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='time')
+# model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='attn')
+# model=TGN(node_dim=1,latent_dim=config_TGN['latent_dim'],emb='sum')
+total_epoch_loss=ModelTrainer.train(model=model,train_data_loader=train_data_loader,val_data_loader=val_data_loader,config=config_TGN)
+print(total_epoch_loss)
