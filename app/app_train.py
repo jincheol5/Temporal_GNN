@@ -52,10 +52,14 @@ def app_train(config: dict):
                 train_graph_list+=graph_list
             train_batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=train_graph_list,random_src=config['random_src'],batch_size=config['batch_size'])
 
+            print(f"preprocess train finish")
+
             val_graph_list=[]
             for _,graph_list in tqdm(val_20.items()):
                 val_graph_list+=graph_list
             val_batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=val_graph_list,random_src=config['random_src'],batch_size=config['batch_size'])
+
+            print(f"preprocess val finish")
 
             """
             model setting and training
