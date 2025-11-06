@@ -67,6 +67,8 @@ class ModelTrainUtils:
         for graph in graph_list:
             graph=graph.remove_edges_from(nx.selfloop_edges(graph))
         
+        print("*")
+
         # process graph_list to batch_loader_list 
         batch_loader_list=[]
         if random_src:
