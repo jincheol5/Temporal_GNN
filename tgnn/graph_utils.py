@@ -14,7 +14,7 @@ class GraphUtils:
             'ts': pd.Series(dtype='float') # timestamp
             })
         for u,v,data in graph.edges(data=True):
-            time_list=data['t']
+            time_list=data['T']
             for timestamp in time_list:
                 df.loc[len(df)]=[u,v,timestamp]
         df=df.sort_values(['ts']).reset_index(drop=True)
