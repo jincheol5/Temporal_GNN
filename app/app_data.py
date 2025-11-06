@@ -4,8 +4,8 @@ val_20=DataUtils.DataLoader.load_from_pickle("val_20","graph")
 
 print(val_20.keys())
 
-val_20=val_20.pop('all',None)
-DataUtils.DataLoader.save_to_pickle(data=val_20,file_name='val_20',dir_type='graph')
+# val_20=val_20.pop('all',None)
+# DataUtils.DataLoader.save_to_pickle(data=val_20,file_name='val_20',dir_type='graph')
 
 
 # train_20=DataUtils.DataLoader.load_from_pickle("train_20","graph")
