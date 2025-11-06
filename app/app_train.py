@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import wandb
 import torch
+from tqdm import tqdm
 from tgnn import DataUtils,ModelTrainer,ModelTrainUtils,TGAT,TGN
 
 def app_train(config: dict):
@@ -47,12 +48,12 @@ def app_train(config: dict):
             val_20=DataUtils.DataLoader.load_from_pickle("val_20","graph")
 
             train_graph_list=[]
-            for _,graph_list in train_20.items():
+            for _,graph_list in tqdm(train_20.items()):
                 train_graph_list+=graph_list
             train_batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=train_graph_list,random_src=config['random_src'],batch_size=config['batch_size'])
 
             val_graph_list=[]
-            for _,graph_list in val_20.items():
+            for _,graph_list in tqdm(val_20.items()):
                 val_graph_list+=graph_list
             val_batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=val_graph_list,random_src=config['random_src'],batch_size=config['batch_size'])
 
