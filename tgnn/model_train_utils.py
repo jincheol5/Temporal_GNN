@@ -73,12 +73,12 @@ class ModelTrainUtils:
             for graph in graph_list:
                 src_id=random.randrange(graph.number_of_nodes())
                 batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
-                batch_loader_list.append(batch_loader)
+                batch_loader_list+=batch_loader
         else:
             for graph in graph_list:
                 for src_id in range(graph.number_of_nodes()):
                     batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
-                    batch_loader_list.append(batch_loader)
+                    batch_loader_list+=batch_loader
         return batch_loader_list
 
     @staticmethod
