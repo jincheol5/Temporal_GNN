@@ -3,6 +3,7 @@ import numpy as np
 import networkx as nx
 import torch
 from typing_extensions import Literal
+from tqdm import tqdm
 from .graph_utils import GraphUtils
 
 
@@ -66,13 +67,11 @@ class ModelTrainUtils:
         # remove self-loop
         for graph in graph_list:
             graph=graph.remove_edges_from(nx.selfloop_edges(graph))
-        
-        print("*")
 
         # process graph_list to batch_loader_list 
         batch_loader_list=[]
         if random_src:
-            for graph in graph_list:
+            for graph in tqdm(graph_list):
                 src_id=random.randrange(graph.number_of_nodes())
                 batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
                 batch_loader_list+=batch_loader
