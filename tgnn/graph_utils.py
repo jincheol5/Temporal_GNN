@@ -68,18 +68,17 @@ class GraphUtils:
         neighbor_mask[neighbor_nodes]=True
         return neighbor_mask
 
-    class GraphAlgorithm:
-        @staticmethod
-        def compute_tR_one_pass_step(graph:nx.DiGraph,source_id:int=0,init:bool=False,edge_event:tuple=None,gamma:dict=None):
-            if init:
-                gamma={}
-                for node in graph.nodes():
-                    gamma[node]=[0.0,1.1] # [reachability,visited_time]
-                gamma[source_id]=[1.0,0.0]
-            else:
-                src,tar,ts=edge_event
-                if gamma[src][0]==1.0 and gamma[tar][0]==0.0:
-                    if gamma[src][1]<ts:
-                        gamma[tar][0]=1.0
-                        gamma[tar][1]=ts
-            return gamma
+    @staticmethod
+    def compute_tR_one_pass_step(graph:nx.DiGraph,source_id:int=0,init:bool=False,edge_event:tuple=None,gamma:dict=None):
+        if init:
+            gamma={}
+            for node in graph.nodes():
+                gamma[node]=[0.0,1.1] # [reachability,visited_time]
+            gamma[source_id]=[1.0,0.0]
+        else:
+            src,tar,ts=edge_event
+            if gamma[src][0]==1.0 and gamma[tar][0]==0.0:
+                if gamma[src][1]<ts:
+                    gamma[tar][0]=1.0
+                    gamma[tar][1]=ts
+        return gamma

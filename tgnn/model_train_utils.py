@@ -1,6 +1,8 @@
+import random
 import numpy as np
 import networkx as nx
 import torch
+from typing_extensions import Literal
 from .graph_utils import GraphUtils
 
 
@@ -13,7 +15,7 @@ class ModelTrainUtils:
 
         batch_loader=[]
 
-        gamma=GraphUtils.GraphAlgorithm.compute_tR_one_pass_step(graph=graph,source_id=source_id,init=True)
+        gamma=GraphUtils.compute_tR_one_pass_step(graph=graph,source_id=source_id,init=True)
         for batch_row in batch_row_list:
             batch_node_raw_feature_list=[]
             batch_node_time_feature_list=[]
@@ -31,7 +33,7 @@ class ModelTrainUtils:
                 neighbor_mask=GraphUtils.get_neighbor_node_mask(edge_index=sub_edge_index,target_node=row.tar,num_nodes=num_nodes) # [N,]
                 
                 # gamma update
-                gamma=GraphUtils.GraphAlgorithm.compute_tR_one_pass_step(graph=graph,source_id=source_id,edge_event=edge_event,gamma=gamma)
+                gamma=GraphUtils.compute_tR_one_pass_step(graph=graph,source_id=source_id,edge_event=edge_event,gamma=gamma)
 
                 batch_node_raw_feature_list.append(node_raw_feature)
                 batch_node_time_feature_list.append(node_time_feature)
@@ -58,6 +60,47 @@ class ModelTrainUtils:
             batch_loader.append(batch_dict)
         
         return batch_loader
+
+    @staticmethod
+    def get_batch_loader_list(graph_list:dict,random_src:bool=True,batch_size:int=1):
+        # remove self-loop
+        for graph in graph_list:
+            graph=graph.remove_edges_from(nx.selfloop_edges(graph))
+        
+        # process graph_list to batch_loader_list 
+        batch_loader_list=[]
+        if random_src:
+            for graph in graph_list:
+                src_id=random.randrange(graph.number_of_nodes())
+                batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
+                batch_loader_list.append(batch_loader)
+        else:
+            for graph in graph_list:
+                for src_id in range(graph.number_of_nodes()):
+                    batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
+                    batch_loader_list.append(batch_loader)
+        return batch_loader_list
+
+    @staticmethod
+    def get_batch_loader_list_dict(graph_list_dict:dict,random_src:bool=True,batch_size:int=1):
+        """
+        Input:
+            graph_list_dict:
+                    graph_list_dict['ladder']=ladder_graph_list
+                    graph_list_dict['grid']=grid_graph_list
+                    graph_list_dict['tree']=tree_graph_list
+                    graph_list_dict['erdos_renyi']=Erdos_Renyi_graph_list
+                    graph_list_dict['barabasi_albert']=Barabasi_Albert_graph_list
+                    graph_list_dict['community']=community_graph_list
+                    graph_list_dict['caveman']=caveman_graph_list
+        """
+        graph_type_list=['ladder','grid','tree','erdos_renyi','barabasi_albert','community','caveman']
+        batch_loader_list_dict={}
+        for graph_type in graph_type_list:
+            graph_list=graph_list_dict[graph_type]
+            batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=graph_list,random_src=random_src,batch_size=batch_size)
+            batch_loader_list_dict[graph_type]=batch_loader_list
+        return batch_loader_list_dict
 
 class EarlyStopping:
     def __init__(self,patience=1):
