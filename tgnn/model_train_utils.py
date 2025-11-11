@@ -26,9 +26,6 @@ class ModelTrainUtils:
             for row in batch_row.itertuples():
                 edge_event=(row.src,row.tar,row.ts)
                 
-                print(f"{edge_event}")
-
-
                 node_raw_feature=GraphUtils.get_node_raw_feature(num_nodes=num_nodes,source_id=source_id) # [N,1]
                 cur_node_time_feature=GraphUtils.get_node_time_feature(gamma=gamma) # [N,1]
                 node_time_feature=torch.abs(cur_node_time_feature-row.ts) # [N,1]

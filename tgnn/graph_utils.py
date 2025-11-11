@@ -8,16 +8,13 @@ from typing_extensions import Literal
 class GraphUtils:
     @staticmethod
     def get_event_stream_df(graph:nx.DiGraph):
-        df=pd.DataFrame({
-            'src': pd.Series(dtype='int'), # source node
-            'tar': pd.Series(dtype='int'), # target node
-            'ts': pd.Series(dtype='float') # timestamp
-            })
+        rows=[]
         for u,v,data in graph.edges(data=True):
             time_list=data['T']
             for timestamp in time_list:
-                df.loc[len(df)]=[u,v,timestamp]
-        df=df.sort_values(['ts']).reset_index(drop=True)
+                rows.append((int(u),int(v),float(timestamp)))
+        df=pd.DataFrame(rows,columns=['src','tar','ts'])
+        df=df.sort_values('ts').reset_index(drop=True)
         return df
 
     @staticmethod
