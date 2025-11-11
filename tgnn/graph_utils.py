@@ -27,12 +27,11 @@ class GraphUtils:
         return raw_node_feature.unsqueeze(-1) # [N,1]
 
     @staticmethod
-    def get_node_time_feature(num_nodes:int,gamma:dict):
-        node_time_feature=torch.zeros((num_nodes,),dtype=torch.float)
-        for node in gamma.keys():
-            if gamma[node][1]!=1.1:
-                node_time_feature[node]=gamma[node][1]
-        return node_time_feature.unsqueeze(-1) # [N,1]
+    def get_node_time_feature(gamma:np.ndarray):
+        """
+        gamma: [N,2], ndarray
+        """
+        return torch.from_numpy(gamma[:,1:2]) # [N,1]
     
     @staticmethod
     def get_sub_edge_index(df:pd.DataFrame,edge_event:tuple):
@@ -69,16 +68,18 @@ class GraphUtils:
         return neighbor_mask
 
     @staticmethod
-    def compute_tR_one_pass_step(graph:nx.DiGraph,source_id:int=0,init:bool=False,edge_event:tuple=None,gamma:dict=None):
+    def compute_tR_step(num_nodes:int,source_id:int,edge_event:tuple,gamma:np.ndarray,init:bool=False):
+        """
+        gamma: [N,2], np.ndarray
+        """
         if init:
-            gamma={}
-            for node in graph.nodes():
-                gamma[node]=[0.0,1.1] # [reachability,visited_time]
+            gamma=np.zeros((num_nodes,2),dtype=float)
+            gamma[:,0]=0.0 # tR
+            gamma[:,1]=1.1 # time
             gamma[source_id]=[1.0,0.0]
         else:
             src,tar,ts=edge_event
-            if gamma[src][0]==1.0 and gamma[tar][0]==0.0:
-                if gamma[src][1]<ts:
-                    gamma[tar][0]=1.0
-                    gamma[tar][1]=ts
+            if gamma[src,0]==1.0 and gamma[tar,0]==0.0 and gamma[src,1]<ts:
+                gamma[tar,0]=1.0
+                gamma[tar,1]=ts
         return gamma

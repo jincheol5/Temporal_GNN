@@ -15,7 +15,7 @@ class ModelTrainUtils:
         batch_row_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
 
         data_loader=[]
-        gamma=GraphUtils.compute_tR_one_pass_step(graph=graph,source_id=source_id,init=True)
+        gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,init=True)
         for batch_row in batch_row_list:
             batch_node_raw_feature_list=[]
             batch_node_time_feature_list=[]
@@ -33,14 +33,14 @@ class ModelTrainUtils:
                 neighbor_mask=GraphUtils.get_neighbor_node_mask(edge_index=sub_edge_index,target_node=row.tar,num_nodes=num_nodes) # [N,]
 
                 # gamma update
-                gamma=GraphUtils.compute_tR_one_pass_step(graph=graph,source_id=source_id,edge_event=edge_event,gamma=gamma)
+                gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,edge_event=edge_event,gamma=gamma)
 
                 batch_node_raw_feature_list.append(node_raw_feature)
                 batch_node_time_feature_list.append(node_time_feature)
                 batch_neighbor_mask_list.append(neighbor_mask)
                 batch_source_node_list.append(row.src)
                 batch_target_node_list.append(row.tar)
-                batch_label_list.append(gamma[row.tar][0])
+                batch_label_list.append(gamma[row.tar,0])
 
             batch_node_raw_feature=torch.stack(batch_node_raw_feature_list,dim=0) # [batch_size,N,1]
             batch_node_time_feature=torch.stack(batch_node_time_feature_list,dim=0) # [batch_size,N,1]
