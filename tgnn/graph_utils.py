@@ -4,6 +4,7 @@ import networkx as nx
 import copy
 import torch
 from typing_extensions import Literal
+from torch_geometric.utils import sort_edge_index
 
 class GraphUtils:
     @staticmethod
@@ -18,10 +19,10 @@ class GraphUtils:
         return df
 
     @staticmethod
-    def get_node_raw_feature(num_nodes:int,source_id:int=0):
-        raw_node_feature=torch.zeros((num_nodes,),dtype=torch.float)
-        raw_node_feature[source_id]=1.0
-        return raw_node_feature.unsqueeze(-1) # [N,1]
+    def get_node_raw_feature(num_nodes:int,source_id:int=0,batch_size:int=1):
+        raw_node_feature=torch.zeros((batch_size,num_nodes,),dtype=torch.float)
+        raw_node_feature[:,source_id]=1.0
+        return raw_node_feature.unsqueeze(-1) # [B,N,1]
 
     @staticmethod
     def get_node_time_feature(gamma:np.ndarray):
@@ -29,23 +30,13 @@ class GraphUtils:
         gamma: [N,2], ndarray
         """
         return torch.from_numpy(gamma[:,1:2]) # [N,1]
-    
+
     @staticmethod
-    def get_sub_edge_index(df:pd.DataFrame,edge_event:tuple):
-        """
-        Input:
-            df: DataFrame
-            edge_event: (src,tar,timestamp) tuple
-        Output:
-            sub edge_index: [2,sub_E]
-        """
-        src,tar,ts=edge_event
-        new_row=pd.DataFrame({'src':[src],'tar':[tar],'ts':[ts]})
-        df_prev=df[df['ts']<ts]
-        df_prev=pd.concat([df_prev,new_row],ignore_index=True)
-        df_latest=df_prev.drop_duplicates(subset=['src','tar'],keep='last').reset_index(drop=True)
-        edge_index=torch.tensor(df_latest[['src','tar']].values.T,dtype=torch.long) # [2,sub_E]
-        return edge_index
+    def get_edge_index(graph:nx.DiGraph):
+        edge_list=list(graph.edges()) 
+        edge_index=torch.tensor(edge_list,dtype=torch.long).t().contiguous()
+        sorted_edge_index=sort_edge_index(edge_index=edge_index,sort_by_row=False)
+        return sorted_edge_index
 
     @staticmethod
     def get_neighbor_node_mask(edge_index:torch.Tensor,target_node:int,num_nodes:int):
@@ -63,6 +54,24 @@ class GraphUtils:
         neighbor_mask=torch.zeros(num_nodes,dtype=torch.bool,device=edge_index.device)
         neighbor_mask[neighbor_nodes]=True
         return neighbor_mask
+
+    @staticmethod
+    def get_neighbor_mask_list(df:pd.DataFrame,num_nodes:int,batch_size:int):
+        """
+        Compute:
+            neighbor_mask: [E,N], boolean tensor
+            split to neighbor_mask_list
+        Output:
+            neighbor_mask_list: List of [B,N], boolean tensor list
+        """
+        num_edge_events=len(df)
+        neighbor_mask=torch.zeros((num_edge_events,num_nodes),dtype=torch.bool)
+        neighbors=[torch.zeros(num_nodes,dtype=torch.bool) for _ in range(num_nodes)]
+        for i,(src,tar,ts) in enumerate(df.itertuples(index=False)):
+            neighbors[tar][src]=True
+            neighbor_mask[i]=neighbors[tar] # 참조가 아닌 복사(tensor index 대입)
+        neighbor_mask_list=[neighbor_mask[i:i+batch_size] for i in range(0,num_edge_events,batch_size)]
+        return neighbor_mask_list
 
     @staticmethod
     def compute_tR_step(num_nodes:int,source_id:int=0,edge_event:tuple=None,gamma:np.ndarray=None,init:bool=False):

@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import pandas as pd
 import networkx as nx
 import torch
 from typing_extensions import Literal
@@ -9,11 +10,8 @@ from .graph_utils import GraphUtils
 
 class ModelTrainUtils:
     @staticmethod
-    def get_data_loader(graph:nx.DiGraph,source_id:int=0,batch_size:int=1):
-        num_nodes=graph.number_of_nodes()
-        df=GraphUtils.get_event_stream_df(graph=graph)
+    def get_data_loader(num_nodes:int,df:pd.DataFrame,source_id:int=0,batch_size:int=1):
         batch_row_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
-
         data_loader=[]
         gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,init=True)
         for batch_row in batch_row_list:
