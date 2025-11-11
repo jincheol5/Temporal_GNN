@@ -27,7 +27,7 @@ class ModelTrainUtils:
                 edge_event=(row.src,row.tar,row.ts)
                 
                 node_raw_feature=GraphUtils.get_node_raw_feature(num_nodes=num_nodes,source_id=source_id) # [N,1]
-                cur_node_time_feature=GraphUtils.get_node_time_feature(num_nodes=num_nodes,gamma=gamma) # [N,1]
+                cur_node_time_feature=GraphUtils.get_node_time_feature(gamma=gamma) # [N,1]
                 node_time_feature=torch.abs(cur_node_time_feature-row.ts) # [N,1]
                 sub_edge_index=GraphUtils.get_sub_edge_index(df=df,edge_event=edge_event) # [2,sub_E]
                 neighbor_mask=GraphUtils.get_neighbor_node_mask(edge_index=sub_edge_index,target_node=row.tar,num_nodes=num_nodes) # [N,]
