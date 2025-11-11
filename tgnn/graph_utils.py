@@ -68,7 +68,7 @@ class GraphUtils:
         return neighbor_mask
 
     @staticmethod
-    def compute_tR_step(num_nodes:int,source_id:int,edge_event:tuple,gamma:np.ndarray,init:bool=False):
+    def compute_tR_step(num_nodes:int,source_id:int=0,edge_event:tuple=None,gamma:np.ndarray=None,init:bool=False):
         """
         gamma: [N,2], np.ndarray
         """
