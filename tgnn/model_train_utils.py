@@ -9,13 +9,12 @@ from .graph_utils import GraphUtils
 
 class ModelTrainUtils:
     @staticmethod
-    def get_batch_loader(graph:nx.DiGraph,source_id:int=0,batch_size:int=1):
+    def get_data_loader(graph:nx.DiGraph,source_id:int=0,batch_size:int=1):
         num_nodes=graph.number_of_nodes()
         df=GraphUtils.get_event_stream_df(graph=graph)
         batch_row_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
 
-        batch_loader=[]
-
+        data_loader=[]
         gamma=GraphUtils.compute_tR_one_pass_step(graph=graph,source_id=source_id,init=True)
         for batch_row in batch_row_list:
             batch_node_raw_feature_list=[]
@@ -32,7 +31,7 @@ class ModelTrainUtils:
                 node_time_feature=torch.abs(cur_node_time_feature-row.ts) # [N,1]
                 sub_edge_index=GraphUtils.get_sub_edge_index(df=df,edge_event=edge_event) # [2,sub_E]
                 neighbor_mask=GraphUtils.get_neighbor_node_mask(edge_index=sub_edge_index,target_node=row.tar,num_nodes=num_nodes) # [N,]
-                
+
                 # gamma update
                 gamma=GraphUtils.compute_tR_one_pass_step(graph=graph,source_id=source_id,edge_event=edge_event,gamma=gamma)
 
@@ -58,32 +57,31 @@ class ModelTrainUtils:
             batch_dict['target']=batch_target_node # [batch_size,1]
             batch_dict['label']=batch_label # [batch_size,1]
 
-            batch_loader.append(batch_dict)
-        
-        return batch_loader
+            data_loader.append(batch_dict)
+        return data_loader
 
     @staticmethod
-    def get_batch_loader_list(graph_list:dict,random_src:bool=True,batch_size:int=1):
+    def get_data_loader_list(graph_list:dict,random_src:bool=True,batch_size:int=1):
         # remove self-loop
         for graph in graph_list:
             graph=graph.remove_edges_from(nx.selfloop_edges(graph))
 
         # process graph_list to batch_loader_list 
-        batch_loader_list=[]
+        data_loader_list=[]
         if random_src:
-            for graph in tqdm(graph_list):
+            for graph in tqdm(graph_list,desc=f"Converting graph_list to data_loader_list (random src)..."):
                 src_id=random.randrange(graph.number_of_nodes())
-                batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
-                batch_loader_list+=batch_loader
+                data_loader=ModelTrainUtils.get_data_loader(graph=graph,source_id=src_id,batch_size=batch_size)
+                data_loader_list+=data_loader
         else:
-            for graph in graph_list:
+            for graph in tqdm(graph_list,desc=f"Converting graph_list to data_loader_list (all src)..."):
                 for src_id in range(graph.number_of_nodes()):
-                    batch_loader=ModelTrainUtils.get_batch_loader(graph=graph,source_id=src_id,batch_size=batch_size)
-                    batch_loader_list+=batch_loader
-        return batch_loader_list
+                    data_loader=ModelTrainUtils.get_data_loader(graph=graph,source_id=src_id,batch_size=batch_size)
+                    data_loader_list+=data_loader
+        return data_loader_list
 
     @staticmethod
-    def get_batch_loader_list_dict(graph_list_dict:dict,random_src:bool=True,batch_size:int=1):
+    def get_data_loader_list_dict(graph_list_dict:dict,random_src:bool=True,batch_size:int=1):
         """
         Input:
             graph_list_dict:
@@ -95,13 +93,12 @@ class ModelTrainUtils:
                     graph_list_dict['community']=community_graph_list
                     graph_list_dict['caveman']=caveman_graph_list
         """
-        graph_type_list=['ladder','grid','tree','erdos_renyi','barabasi_albert','community','caveman']
-        batch_loader_list_dict={}
-        for graph_type in graph_type_list:
-            graph_list=graph_list_dict[graph_type]
-            batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=graph_list,random_src=random_src,batch_size=batch_size)
-            batch_loader_list_dict[graph_type]=batch_loader_list
-        return batch_loader_list_dict
+        data_loader_list_dict={}
+        for graph_type,graph_list in graph_list_dict.items():
+            data_loader_list=ModelTrainUtils.get_data_loader_list(graph_list=graph_list,random_src=random_src,batch_size=batch_size)
+            data_loader_list_dict[graph_type]=data_loader_list
+            print(f"End of converting {graph_type} graph_list to data_loader_list")
+        return data_loader_list_dict
 
 class EarlyStopping:
     def __init__(self,patience=1):
