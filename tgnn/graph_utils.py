@@ -17,6 +17,20 @@ class GraphUtils:
         df=pd.DataFrame(rows,columns=['src','tar','ts'])
         df=df.sort_values('ts').reset_index(drop=True)
         return df
+    
+    @staticmethod
+    def get_event_stream(graph:nx.DiGraph):
+        """
+        Output:
+            rows: tuple list
+        """
+        event_stream=[]
+        for u,v,data in graph.edges(data=True):
+            time_list=data['T']
+            for timestamp in time_list:
+                event_stream.append((int(u),int(v),float(timestamp)))
+        event_stream=sorted(event_stream,key=lambda x:x[2])
+        return event_stream
 
     @staticmethod
     def get_node_raw_feature(num_nodes:int,source_id:int=0,batch_size:int=1):
@@ -56,7 +70,7 @@ class GraphUtils:
         return neighbor_mask
 
     @staticmethod
-    def get_neighbor_mask_list(df:pd.DataFrame,num_nodes:int,batch_size:int):
+    def get_neighbor_mask_list(event_stream:list,num_nodes:int,batch_size:int):
         """
         Compute:
             neighbor_mask: [E,N], boolean tensor
@@ -64,10 +78,10 @@ class GraphUtils:
         Output:
             neighbor_mask_list: List of [B,N], boolean tensor list
         """
-        num_edge_events=len(df)
+        num_edge_events=len(event_stream)
         neighbor_mask=torch.zeros((num_edge_events,num_nodes),dtype=torch.bool)
         neighbors=[torch.zeros(num_nodes,dtype=torch.bool) for _ in range(num_nodes)]
-        for i,(src,tar,ts) in enumerate(df.itertuples(index=False)):
+        for i,(src,tar,ts) in enumerate(event_stream):
             neighbors[tar][src]=True
             neighbor_mask[i]=neighbors[tar] # 참조가 아닌 복사(tensor index 대입)
         neighbor_mask_list=[neighbor_mask[i:i+batch_size] for i in range(0,num_edge_events,batch_size)]

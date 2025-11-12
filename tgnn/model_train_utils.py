@@ -9,6 +9,40 @@ from .graph_utils import GraphUtils
 
 
 class ModelTrainUtils:
+
+    @staticmethod
+    def data_loader(event_stream:list,num_nodes:int,source_id:int,batch_size:int):
+        """
+        Input:
+            event_stream: List of edge_event tuple
+            num_nodes: number of nodes
+            source_id: source node id
+            batch_size: batch size of edge_events
+        Output:
+            data_loader: List of batch_dict
+                x: [B,N,1]
+                t: [B,N,1]
+                src: [B,1]
+                tar: [B,1]
+                n_mask: [B,N,], neighbor mask of target nodes
+                label: [B,1]
+        """
+        data_loader=[]
+        num_events=len(event_stream)
+        
+        x=torch.zeros((num_events,num_nodes),dtype=torch.bool)
+        t=torch.zeros((num_events,num_nodes),dtype=torch.bool)
+        src=torch.zeros(num_events,dtype=torch.bool)
+        tar=torch.zeros(num_events,dtype=torch.bool)
+        neighbor_mask=torch.zeros((num_events,num_nodes),dtype=torch.bool)
+        label=torch.zeros(num_events,dtype=torch.bool)
+
+        gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,init=True)
+        for i,(src,tar,ts) in enumerate(event_stream):
+            """
+            
+            """
+
     @staticmethod
     def get_data_loader(num_nodes:int,df:pd.DataFrame,source_id:int=0,batch_size:int=1):
         batch_row_list=[df.iloc[i:i+batch_size] for i in range(0,len(df),batch_size)]
