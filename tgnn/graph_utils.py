@@ -8,17 +8,6 @@ from torch_geometric.utils import sort_edge_index
 
 class GraphUtils:
     @staticmethod
-    def get_event_stream_df(graph:nx.DiGraph):
-        rows=[]
-        for u,v,data in graph.edges(data=True):
-            time_list=data['T']
-            for timestamp in time_list:
-                rows.append((int(u),int(v),float(timestamp)))
-        df=pd.DataFrame(rows,columns=['src','tar','ts'])
-        df=df.sort_values('ts').reset_index(drop=True)
-        return df
-    
-    @staticmethod
     def get_event_stream(graph:nx.DiGraph):
         """
         Output:
@@ -33,19 +22,6 @@ class GraphUtils:
         return event_stream
 
     @staticmethod
-    def get_node_raw_feature(num_nodes:int,source_id:int=0,batch_size:int=1):
-        raw_node_feature=torch.zeros((batch_size,num_nodes,),dtype=torch.float)
-        raw_node_feature[:,source_id]=1.0
-        return raw_node_feature.unsqueeze(-1) # [B,N,1]
-
-    @staticmethod
-    def get_node_time_feature(gamma:np.ndarray):
-        """
-        gamma: [N,2], ndarray
-        """
-        return torch.from_numpy(gamma[:,1:2]) # [N,1]
-
-    @staticmethod
     def get_edge_index(graph:nx.DiGraph):
         edge_list=list(graph.edges()) 
         edge_index=torch.tensor(edge_list,dtype=torch.long).t().contiguous()
@@ -53,53 +29,72 @@ class GraphUtils:
         return sorted_edge_index
 
     @staticmethod
-    def get_neighbor_node_mask(edge_index:torch.Tensor,target_node:int,num_nodes:int):
+    def compute_tR_step(num_nodes:int,source_id:int=0,edge_event:tuple=None,gamma:torch.Tensor=None,init:bool=False):
         """
-        Input:
-            edge_index: [2,sub_E]
-            target_node: int
-            num_nodes: int
-        Output:
-            neighbor_mask: [N,]
-        """
-        src,tar=edge_index
-        mask=(tar==target_node)
-        neighbor_nodes=src[mask]
-        neighbor_mask=torch.zeros(num_nodes,dtype=torch.bool,device=edge_index.device)
-        neighbor_mask[neighbor_nodes]=True
-        return neighbor_mask
-
-    @staticmethod
-    def get_neighbor_mask_list(event_stream:list,num_nodes:int,batch_size:int):
-        """
-        Compute:
-            neighbor_mask: [E,N], boolean tensor
-            split to neighbor_mask_list
-        Output:
-            neighbor_mask_list: List of [B,N], boolean tensor list
-        """
-        num_edge_events=len(event_stream)
-        neighbor_mask=torch.zeros((num_edge_events,num_nodes),dtype=torch.bool)
-        neighbors=[torch.zeros(num_nodes,dtype=torch.bool) for _ in range(num_nodes)]
-        for i,(src,tar,ts) in enumerate(event_stream):
-            neighbors[tar][src]=True
-            neighbor_mask[i]=neighbors[tar] # 참조가 아닌 복사(tensor index 대입)
-        neighbor_mask_list=[neighbor_mask[i:i+batch_size] for i in range(0,num_edge_events,batch_size)]
-        return neighbor_mask_list
-
-    @staticmethod
-    def compute_tR_step(num_nodes:int,source_id:int=0,edge_event:tuple=None,gamma:np.ndarray=None,init:bool=False):
-        """
-        gamma: [N,2], np.ndarray
+        gamma: [N,3] tensor, tR and time
         """
         if init:
-            gamma=np.zeros((num_nodes,2),dtype=float)
+            gamma=torch.zeros((num_nodes,3),dtype=torch.float) # tR,time,ts
             gamma[:,0]=0.0 # tR
             gamma[:,1]=1.1 # time
-            gamma[source_id]=[1.0,0.0]
+            gamma[:,2]=0.0 # ts
+
+            gamma[source_id,0]=1.0
+            gamma[source_id,1]=0.0
         else:
             src,tar,ts=edge_event
-            if gamma[src,0]==1.0 and gamma[tar,0]==0.0 and gamma[src,1]<ts:
+            if gamma[src,0].item()==1.0 and gamma[tar,0].item()==0.0 and gamma[src,1].item()<ts:
                 gamma[tar,0]=1.0
                 gamma[tar,1]=ts
+                gamma[tar,2]=ts
         return gamma
+
+    @staticmethod
+    def compute_dataset(event_stream:list,num_nodes:int,source_id:int):
+        """
+        Input:
+            event_stream: List of edge_event tuple
+            num_nodes: number of nodes
+            source_id: source node id
+        Output:
+            dataset: List of data_dict
+                data_dict:
+                    x: [N,1]
+                    t: [N,1]
+                    src: src id
+                    tar: tar id
+                    n_mask: [N,]
+                    label: label (1.0 or 0.0)
+        """
+        dataset=[]
+        num_edge_events=len(event_stream)
+        raw_node_feature=torch.zeros((num_edge_events,num_nodes),dtype=torch.float)
+        raw_node_feature[:,source_id]=1.0 
+        raw_node_feature=raw_node_feature.unsqueeze(-1) # [E,N,1]
+        x_list=list(torch.unbind(raw_node_feature,dim=0)) # List of [N,1]
+        neighbor_mask=torch.zeros((num_edge_events,num_nodes),dtype=torch.bool) # [E,N]
+        neighbor_history=[torch.zeros(num_nodes,dtype=torch.bool) for _ in range(num_nodes)] # List of [N,]
+        gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,init=True) # [N,3]
+        for i,(edge_event,x) in enumerate(zip(event_stream,x_list)):
+            src,tar,ts=edge_event
+
+            # compute tR step
+            gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,edge_event=edge_event,gamma=gamma) # [N,3]
+            
+            # save x,t,src,tar,n_mask,label to data_dict
+            data_dict={}
+            data_dict['x']=x
+
+            cur_t=gamma[:,-1:] # [N,1]
+            data_dict['t']=torch.abs(cur_t-ts) # [N,1] 
+            
+            data_dict['src']=src
+            data_dict['tar']=tar
+            
+            neighbor_history[tar][src]=True
+            neighbor_mask[i]=neighbor_history[tar] # 참조가 아닌 복사(tensor index 대입)
+            data_dict['n_mask']=neighbor_mask[i]
+
+            data_dict['label']=gamma[tar,0].item()
+            dataset.append(data_dict)
+        return dataset
