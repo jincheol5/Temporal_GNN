@@ -32,21 +32,21 @@ class DataUtils:
     @staticmethod
     def save_dataset_dict_list_all_type(dataset_dict_list_all_type:dict,file_name:str,dir_type:Literal['train','val','test']):
         for key,value in tqdm(dataset_dict_list_all_type.items(),desc=f"Save {file_name} ..."):
-                match key:
-                    case 'ladder':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_ladder",dir_type=dir_type)
-                    case 'grid':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_grid",dir_type=dir_type)
-                    case 'tree':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_tree",dir_type=dir_type)
-                    case 'erdos_renyi':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_erdos_renyi",dir_type=dir_type)
-                    case 'barabasi_albert':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_barabasi_albert",dir_type=dir_type)
-                    case 'community':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_community",dir_type=dir_type)
-                    case 'caveman':
-                        DataUtils.save_to_pickle(data=value,file_name=file_name+"_caveman",dir_type=dir_type)
+            match key:
+                case 'ladder':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_ladder",dir_type=dir_type)
+                case 'grid':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_grid",dir_type=dir_type)
+                case 'tree':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_tree",dir_type=dir_type)
+                case 'erdos_renyi':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_erdos_renyi",dir_type=dir_type)
+                case 'barabasi_albert':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_barabasi_albert",dir_type=dir_type)
+                case 'community':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_community",dir_type=dir_type)
+                case 'caveman':
+                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_caveman",dir_type=dir_type)
 
     @staticmethod
     def save_model_parameter(model,model_name:str):
