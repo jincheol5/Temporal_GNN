@@ -51,7 +51,7 @@ class GraphUtils:
         return gamma
 
     @staticmethod
-    def compute_dataset(event_stream:list,num_nodes:int,source_id:int):
+    def convert_to_dataset(event_stream:list,num_nodes:int,source_id:int):
         """
         Input:
             event_stream: List of edge_event tuple
@@ -104,7 +104,7 @@ class GraphUtils:
         return dataset
 
     @staticmethod
-    def compute_dataset_dict(graph:nx.DiGraph):
+    def convert_to_dataset_dict(graph:nx.DiGraph):
         """
         Input:
             graph
@@ -122,7 +122,7 @@ class GraphUtils:
         return dataset_dict
     
     @staticmethod
-    def compute_dataset_dict_list(graph_list:list):
+    def convert_to_dataset_dict_list(graph_list:list,graph_type:str):
         """
         Input:
             graph_list
@@ -130,8 +130,47 @@ class GraphUtils:
             list of dataset_dict
         """
         dataset_dict_list=[]
-        for graph in graph_list:
+        for graph in tqdm(graph_list,desc=f"Convert {graph_type} graph_list..."):
             graph.remove_edges_from(nx.selfloop_edges(graph))
             dataset_dict=GraphUtils.compute_dataset_dict(graph=graph)
             dataset_dict_list.append(dataset_dict)
         return dataset_dict_list
+    
+    @staticmethod
+    def convert_to_dataset_dict_list_all_type(graph_list_dict:dict):
+        """
+        Input:
+            graph_list_dict
+        Output:
+            dataset_dict_list_all_type
+            dict of dataset_dict_list for all type graphs
+        """
+        dataset_dict_list_all_type={}
+        for graph_type,graph_list in tqdm(graph_list_dict.items(),desc=f"Converting all type graphs..."):
+            dataset_dict_list=GraphUtils.convert_to_dataset_dict_list(graph_list=graph_list,graph_type=graph_type)
+            dataset_dict_list_all_type[graph_type]=dataset_dict_list
+
+class GraphAnalysis:
+    @staticmethod
+    def check_elements(graph:nx.DiGraph):
+        num_nodes=graph.number_of_nodes()
+        num_static_edges=graph.number_of_edges()
+        num_edge_events=0
+        for src,tar in graph.edges():
+            count=0
+            for time in graph[src][tar]['T']:
+                if time!=0.0:
+                    count+=1
+            num_edge_events+=count
+        return num_nodes,num_static_edges,num_edge_events
+
+    @staticmethod
+    def check_min_max_edge_time_len(graph:nx.DiGraph):
+        min_T_len=min((len(data.get('T',[])) for _,_,data in graph.edges(data=True)),default=0)
+        max_T_len=max((len(data.get('T',[])) for _,_,data in graph.edges(data=True)),default=0)
+        return min_T_len,max_T_len
+
+    @staticmethod
+    def check_reachability_ratio(r:torch.Tensor):
+        r_flat=r.view(-1).to(torch.float32)  # [N,1] -> [N,]
+        return r_flat.mean().item()
