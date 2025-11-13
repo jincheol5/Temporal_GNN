@@ -30,6 +30,20 @@ class GraphUtils:
         return sorted_edge_index
 
     @staticmethod
+    def get_adj_mask(num_nodes:int,edge_index:torch.Tensor):
+        """
+        Input:
+            num_nodes
+            edge_index: [2,E]
+        Output:
+            adj_mask: [N,N]
+        """
+        adj_mask=torch.zeros((num_nodes,num_nodes),dtype=torch.bool,device=edge_index.device)
+        src,tar=edge_index
+        adj_mask[tar,src]=True
+        return adj_mask
+
+    @staticmethod
     def compute_tR_step(num_nodes:int,source_id:int=0,edge_event:tuple=None,gamma:torch.Tensor=None,init:bool=False):
         """
         gamma: [N,3] tensor, tR and time
@@ -51,12 +65,13 @@ class GraphUtils:
         return gamma
 
     @staticmethod
-    def convert_to_dataset(event_stream:list,num_nodes:int,source_id:int):
+    def convert_to_dataset(event_stream:list,num_nodes:int,source_id:int,edge_index:torch.Tensor):
         """
         Input:
             event_stream: List of edge_event tuple
             num_nodes: number of nodes
             source_id: source node id
+            edge_index: [2,E]
         Output:
             dataset: List of event_dict
                 event_dict:
@@ -66,7 +81,8 @@ class GraphUtils:
                     tar: tar id
                     n_mask: [N,]
                     tar_label: tar label (1.0 or 0.0)
-                    label: [N,1], label of all nodes  
+                    label: [N,1], label of all nodes
+                    edge_index: [2,E]  
         """
         dataset=[]
         num_edge_events=len(event_stream)
@@ -99,6 +115,7 @@ class GraphUtils:
 
             event_dict['tar_label']=gamma[tar,0].item()
             event_dict['label']=gamma[:,0:1]
+            event_dict['edge_index']=edge_index
             dataset.append(event_dict)
 
         return dataset
@@ -114,10 +131,11 @@ class GraphUtils:
                 value: dataset
         """
         num_nodes=graph.number_of_nodes()
+        edge_index=GraphUtils.get_edge_index(graph=graph)
         event_stream=GraphUtils.get_event_stream(graph=graph)
         dataset_dict={}
         for source_id in range(num_nodes):
-            dataset=GraphUtils.compute_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id)
+            dataset=GraphUtils.convert_to_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id)
             dataset_dict[source_id]=dataset
         return dataset_dict
     
@@ -132,7 +150,7 @@ class GraphUtils:
         dataset_dict_list=[]
         for graph in tqdm(graph_list,desc=f"Convert {graph_type} graph_list..."):
             graph.remove_edges_from(nx.selfloop_edges(graph))
-            dataset_dict=GraphUtils.compute_dataset_dict(graph=graph)
+            dataset_dict=GraphUtils.convert_to_dataset_dict(graph=graph)
             dataset_dict_list.append(dataset_dict)
         return dataset_dict_list
     

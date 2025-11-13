@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing_extensions import Literal
 from torch_scatter import scatter_mean
 
 class TimeEncoder(nn.Module):
@@ -50,7 +51,7 @@ class TimeProjection(nn.Module):
         z=torch.mul(delta_t_vec,target_memory) # [batch_size,latent_dim]
         return z
 
-class TemporalGraphAttention(nn.Module):
+class GraphAttention(nn.Module):
     def __init__(self,node_dim,latent_dim):
         super().__init__()
         self.query_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
@@ -62,34 +63,63 @@ class TemporalGraphAttention(nn.Module):
             nn.Linear(latent_dim,latent_dim)
         )
 
-    def forward(self,target,h,neighbor_mask):
+    def forward(self,target,h,neighbor_mask,step:Literal['step','last']='step'):
         """
         Input:
-            target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
-            h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
-            neighbor_mask: [batch_size,N,], neighbor node mask
+            step
+                target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
+                h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+                neighbor_mask: [batch_size,N,], neighbor node mask
+            last
+                target: [N,node_dim+latent_dim+latent_dim], target node feature||time_feature
+                h: [N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+                neighbor_mask: [N,N], neighbor node mask
         Output:
             z: [batch_size,latent_dim]
         """
-        feature_dim=target.size(1)
+        if step=='step':
+            feature_dim=target.size(1)
 
-        q=self.query_linear(target) # [batch_size,latent_dim]
-        k=self.key_linear(h) # [batch_size,N,latent_dim]
-        v=self.value_linear(h) # [batch_size,N,latent_dim]
+            q=self.query_linear(target) # [batch_size,latent_dim]
+            k=self.key_linear(h) # [batch_size,N,latent_dim]
+            v=self.value_linear(h) # [batch_size,N,latent_dim]
 
-        q=q.unsqueeze(1) # [batch_size,1,latent_dim]
-        attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [batch_size,1,N]
+            q=q.unsqueeze(1) # [batch_size,1,latent_dim]
+            attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [batch_size,1,latent_dim] X [batch_size,latent_dim,N] = [batch_size,1,N]
 
-        neighbor_mask=neighbor_mask.unsqueeze(1) # [batch_size,1,N]
-        attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf')) # [batch_size,1,N]
+            neighbor_mask=neighbor_mask.unsqueeze(1) # [batch_size,1,N]
+            attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf')) # [batch_size,1,N]
 
-        attention_weight=F.softmax(attention_scores,dim=-1) # [batch_size,1,N]
+            attention_weight=F.softmax(attention_scores,dim=-1) # [batch_size,1,N]
 
-        neighbor_weight_sum=torch.matmul(attention_weight,v) # [batch_size,1,latent_dim]
-        neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [batch_size,latent_dim]
+            neighbor_weight_sum=torch.matmul(attention_weight,v) # [batch_size,1,latent_dim]
+            neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [batch_size,latent_dim]
 
-        z=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
-        z=self.ffn(z) # [batch_size,latent_dim]
+            z=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
+            z=self.ffn(z) # [batch_size,latent_dim]
+        else: # last
+            feature_dim=target.size(1)
+
+            q=self.query_linear(target) # [N,latent_dim]
+            k=self.key_linear(h) # [N,latent_dim]
+            v=self.value_linear(h) # [N,latent_dim]
+
+            q=q.unsqueeze(1) # [N,1,latent_dim] 
+            k=k.unsqueeze(0) # [1,N,latent_dim]
+            v=v.unsqueeze(0) # [1,N,latent_dim]
+
+            attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [N,1,latent_dim] X [1,latent_dim,N](broadcast됨) = [N,1,N] 
+
+            neighbor_mask=neighbor_mask.unsqueeze(1) # [N,1,N] 
+            attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf'))
+
+            attention_weight=F.softmax(attention_scores,dim=-1) # [N,1,N]
+
+            neighbor_weight_sum=torch.matmul(attention_weight,v) # [N,1,latent_dim]
+            neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [N,latent_dim]
+
+            z=torch.cat([neighbor_weight_sum,target],dim=-1) # [N,latent_dim||node+latent_dim+latent_dim]
+            z=self.ffn(z) # [N,latent_dim]
         return z
 
 class TemporalGraphSum(nn.Module):
