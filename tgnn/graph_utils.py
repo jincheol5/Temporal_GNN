@@ -131,7 +131,7 @@ class GraphUtils:
         """
         dataset_dict_list=[]
         for graph in graph_list:
-            graph=graph.remove_edges_from(nx.selfloop_edges(graph))
+            graph.remove_edges_from(nx.selfloop_edges(graph))
             dataset_dict=GraphUtils.compute_dataset_dict(graph=graph)
             dataset_dict_list.append(dataset_dict)
         return dataset_dict_list
