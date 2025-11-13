@@ -1,4 +1,5 @@
-from tgnn import DataUtils,ModelTrainUtils
+from tqdm import tqdm
+from tgnn import DataUtils,GraphUtils
 
 
 """
@@ -8,7 +9,9 @@ TO DO LIST:
 """
 
 graph_list_dict=DataUtils.DataLoader.load_from_pickle("train_20","graph")
-data_loader_list_dict=ModelTrainUtils.get_data_loader_list_dict(graph_list_dict=graph_list_dict,random_src=False,batch_size=32)
+
+for graph_type,graph_list in tqdm(graph_list_dict.items()):
+    dataset_dict_list=GraphUtils.compute_dataset_dict_list(graph_list=graph_list)
 
 
 

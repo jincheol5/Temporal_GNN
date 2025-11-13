@@ -4,6 +4,7 @@ import networkx as nx
 import copy
 import torch
 from typing_extensions import Literal
+from tqdm import tqdm
 from torch_geometric.utils import sort_edge_index
 
 class GraphUtils:
@@ -57,14 +58,15 @@ class GraphUtils:
             num_nodes: number of nodes
             source_id: source node id
         Output:
-            dataset: List of data_dict
-                data_dict:
+            dataset: List of event_dict
+                event_dict:
                     x: [N,1]
                     t: [N,1]
                     src: src id
                     tar: tar id
                     n_mask: [N,]
-                    label: label (1.0 or 0.0)
+                    tar_label: tar label (1.0 or 0.0)
+                    label: [N,1], label of all nodes  
         """
         dataset=[]
         num_edge_events=len(event_stream)
@@ -81,20 +83,55 @@ class GraphUtils:
             # compute tR step
             gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,edge_event=edge_event,gamma=gamma) # [N,3]
             
-            # save x,t,src,tar,n_mask,label to data_dict
-            data_dict={}
-            data_dict['x']=x
+            # save x,t,src,tar,n_mask,tar_label,label to event_dict
+            event_dict={}
+            event_dict['x']=x
 
             cur_t=gamma[:,-1:] # [N,1]
-            data_dict['t']=torch.abs(cur_t-ts) # [N,1] 
+            event_dict['t']=torch.abs(cur_t-ts) # [N,1] 
             
-            data_dict['src']=src
-            data_dict['tar']=tar
+            event_dict['src']=src
+            event_dict['tar']=tar
             
             neighbor_history[tar][src]=True
             neighbor_mask[i]=neighbor_history[tar] # 참조가 아닌 복사(tensor index 대입)
-            data_dict['n_mask']=neighbor_mask[i]
+            event_dict['n_mask']=neighbor_mask[i]
 
-            data_dict['label']=gamma[tar,0].item()
-            dataset.append(data_dict)
+            event_dict['tar_label']=gamma[tar,0].item()
+            event_dict['label']=gamma[:,0:1]
+            dataset.append(event_dict)
+
         return dataset
+
+    @staticmethod
+    def compute_dataset_dict(graph:nx.DiGraph):
+        """
+        Input:
+            graph
+        Output:
+            dataset_dict
+                key: source_id
+                value: dataset
+        """
+        num_nodes=graph.number_of_nodes()
+        event_stream=GraphUtils.get_event_stream(graph=graph)
+        dataset_dict={}
+        for source_id in range(num_nodes):
+            dataset=GraphUtils.compute_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id)
+            dataset_dict[source_id]=dataset
+        return dataset_dict
+    
+    @staticmethod
+    def compute_dataset_dict_list(graph_list:list):
+        """
+        Input:
+            graph_list
+        Output:
+            list of dataset_dict
+        """
+        dataset_dict_list=[]
+        for graph in graph_list:
+            graph=graph.remove_edges_from(nx.selfloop_edges(graph))
+            dataset_dict=GraphUtils.compute_dataset_dict(graph=graph)
+            dataset_dict_list.append(dataset_dict)
+        return dataset_dict_list
