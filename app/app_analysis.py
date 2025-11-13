@@ -1,9 +1,9 @@
 import networkx as nx
 import numpy as np
 import argparse
-from tgnn import DataUtils,GraphUtils,GraphAnalysis
+from tgnn import DataUtils,GraphAnalysis
 
-def app_analysis(config: dict):
+def app_analysis(config:dict):
     match config['app_num']:
         case 1:
             """
@@ -18,7 +18,7 @@ def app_analysis(config: dict):
                 E_list=[]
                 for graph in graph_list:
                     graph.remove_edges_from(nx.selfloop_edges(graph))
-                    N,E_s,E=GraphUtils.GraphAnalysis.check_elements(graph=graph)
+                    N,E_s,E=GraphAnalysis.check_elements(graph=graph)
                     N_list.append(N)
                     E_s_list.append(E_s)
                     E_list.append(E)
