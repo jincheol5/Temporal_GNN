@@ -38,11 +38,13 @@ def app_train(config: dict):
                 train_data_loader_list.append(data_loader)
             print(f"train_data_loader_list is ready!")
 
-            dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_ladder",path="tgnn",dir_type="val")
+            graph_type_list=['ladder','grid','tree','erdos_renyi','barabasi_albert','community','caveman']
             val_dataset_list=[]
-            for dataset_dict in dataset_dict_list:
-                for _,dataset in dataset_dict.items():
-                    val_dataset_list.append(dataset)
+            for graph_type in graph_type_list:
+                dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_{graph_type}",path="tgnn",dir_type="val")
+                for dataset_dict in dataset_dict_list:
+                    for _,dataset in dataset_dict.items():
+                        val_dataset_list.append(dataset)
 
             val_data_loader_list=[]
             for dataset in val_dataset_list:
