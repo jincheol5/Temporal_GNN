@@ -218,7 +218,7 @@ class TGN(nn.Module):
             case 'time':
                 z=self.embedding(target_memory=last_memory,delta_t=t) # [N,latent_dim]
             case 'attn'|'sum':
-                z=self.embedding(target=tar_h,h=h,neighbor_mask=adj_mask) # [N,latent_dim]
+                z=self.embedding(target=tar_h,h=h,neighbor_mask=adj_mask,step='last') # [N,latent_dim]
         last_logit=self.linear(z) # [N,1]
 
         output={}
