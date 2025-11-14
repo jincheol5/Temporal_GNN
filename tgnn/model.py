@@ -71,7 +71,7 @@ class TGAT(nn.Module):
         x=data_loader[-1]['x'][0] # [N,1]
         t=data_loader[-1]['t'][0] # [N,1]
         edge_index=data_loader[-1]['edge_index'][0] # [2,E]
-        print(edge_index.shape())
+        print(edge_index.shape)
         adj_mask=GraphUtils.get_adj_mask(num_nodes=num_nodes,edge_index=edge_index) # [N,N]
 
         # target vector (all nodes)
