@@ -30,7 +30,7 @@ class TGAT(nn.Module):
         """
         compute step tR logit
         """
-        logit_list=[]
+        step_logit_list=[]
         for batch in data_loader:
             batch={k:v.to(device) for k,v in batch.items()}
             x=batch['x'] # [B,N,1], float
@@ -64,9 +64,7 @@ class TGAT(nn.Module):
             # attention result
             z=self.attention(target=tar_h,h=h,neighbor_mask=n_mask) # [B,latent_dim]
             logit=self.linear(z) # [B,1]
-            logit_list.append(logit)
-        step_logit=torch.stack(logit_list,dim=0) # [seq_len,B,1]
-
+            step_logit_list.append(logit)
         """
         compute last tR logit
         """
@@ -93,7 +91,7 @@ class TGAT(nn.Module):
         last_logit=self.linear(z) # [N,1]
 
         output={}
-        output['step_logit']=step_logit # [seq_len,B,1]
+        output['step_logit_list']=step_logit_list # List of [B,1]
         output['last_logit']=last_logit # [N,1]
         return output 
 
@@ -132,7 +130,7 @@ class TGN(nn.Module):
         """
         compute step tR logit
         """
-        logit_list=[]
+        step_logit_list=[]
         last_memory=None
         num_nodes=data_loader[0]['x'].size(1)
         memory=torch.zeros(num_nodes,self.latent_dim,dtype=torch.float32,device=device)
@@ -184,10 +182,8 @@ class TGN(nn.Module):
                     z=self.embedding(target=tar_h,h=h,neighbor_mask=n_mask,step='step') # [B,latent_dim]
 
             logit=self.linear(z) # [B,1]
-            logit_list.append(logit)
+            step_logit_list.append(logit)
             memory=updated_memory # set next memory
-        step_logit=torch.stack(logit_list,dim=0) # [seq_len,B,1]
-
         """
         compute last tR logit
         """
@@ -218,6 +214,6 @@ class TGN(nn.Module):
         last_logit=self.linear(z) # [N,1]
 
         output={}
-        output['step_logit']=step_logit # [seq_len,B,1]
+        output['step_logit_list']=step_logit_list # List of [B,1]
         output['last_logit']=last_logit # [N,1]
         return output 

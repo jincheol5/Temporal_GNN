@@ -25,16 +25,15 @@ class ModelTrainer:
             model.train()
             loss_list=[]
             for train_data_loader in tqdm(train_data_loader_list,desc=f"Training {epoch+1} epoch..."):
-                tar_label_list=[batch['tar_label'] for batch in train_data_loader]
-                tar_label=torch.stack(tar_label_list,dim=0) # [seq_len,B,1]
+                tar_label_list=[batch['tar_label'] for batch in train_data_loader] # List of [B,1], B는 각 element마다 다를 수 있음
                 last_label=train_data_loader[-1]['label'] # [N,1]
-                tar_label=tar_label.to(device)
+                tar_label_list=[tar_label.to(device) for tar_label in tar_label_list]
                 last_label=last_label.to(device)
 
                 output=model(data_loader=train_data_loader,device=device)
-                pred_step_logit=output['step_logit']
+                pred_step_logit_list=output['step_logit_list']
                 pred_last_logit=output['last_logit']
-                step_loss=Metrics.compute_step_tR_loss(logit=pred_step_logit,label=tar_label)
+                step_loss=Metrics.compute_step_tR_loss(logit_list=pred_step_logit_list,label_list=tar_label_list)
                 last_loss=Metrics.compute_last_tR_loss(logit=pred_last_logit,label=last_label)
                 total_loss=step_loss+last_loss
                 loss_list.append(total_loss)
@@ -85,16 +84,15 @@ class ModelTrainer:
             last_acc_list=[]
             for data_loader in tqdm(data_loader_list,desc=f"Evaluating..."):
                 tar_label_list=[batch['tar_label'] for batch in data_loader]
-                tar_label=torch.stack(tar_label_list,dim=0) # [seq_len,batch_size,1]
                 last_label=data_loader[-1]['label'] # [N,1]
-                tar_label=tar_label.to(device)
+                tar_label_list=[tar_label.to(device) for tar_label in tar_label_list]
                 last_label=last_label.to(device)
 
                 output=model(data_loader=data_loader,device=device)
-                pred_step_logit=output['step_logit']
+                pred_step_logit_list=output['step_logit_list']
                 pred_last_logit=output['last_logit']
 
-                step_acc=Metrics.compute_step_tR_acc(logit=pred_step_logit,label=tar_label)
+                step_acc=Metrics.compute_step_tR_acc(logit_list=pred_step_logit_list,label_list=tar_label_list)
                 last_acc=Metrics.compute_last_tR_acc(logit=pred_last_logit,label=last_label)
                 step_acc_list.append(step_acc)
                 last_acc_list.append(last_acc)
