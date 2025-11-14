@@ -21,6 +21,46 @@ def app_train(config: dict):
     torch.backends.cudnn.benchmark=False
 
     match config['app_num']:
+        case 0:
+            """
+            test
+            """
+            dataset_dict_list=DataUtils.load_from_pickle(file_name=f"train_20_ladder",path="tgnn",dir_type="train")
+            train_dataset_list=[]
+            for dataset_dict in dataset_dict_list:
+                random_src_id=random.randrange(20)
+                dataset=dataset_dict[random_src_id]
+                train_dataset_list.append(dataset)
+
+            train_data_loader_list=[]
+            for dataset in train_dataset_list:
+                data_loader=ModelTrainUtils.get_data_loader(dataset=dataset,batch_size=config['batch_size'])
+                train_data_loader_list.append(data_loader)
+            print(f"train_data_loader_list is ready!")
+
+            dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_ladder",path="tgnn",dir_type="val")
+            val_dataset_list=[]
+            for dataset_dict in dataset_dict_list:
+                random_src_id=random.randrange(20)
+                dataset=dataset_dict[random_src_id]
+                val_dataset_list.append(dataset)
+
+            val_data_loader_list=[]
+            for dataset in val_dataset_list:
+                data_loader=ModelTrainUtils.get_data_loader(dataset=dataset,batch_size=config['batch_size'])
+                val_data_loader_list.append(data_loader)
+            print(f"val_data_loader_list is ready!")
+
+            """
+            model setting and training
+            """
+            match config['model']:
+                case 'tgat':
+                    model=TGAT(node_dim=1,latent_dim=config['latent_dim'])
+                case 'tgn':
+                    model=TGN(node_dim=1,latent_dim=config['latent_dim'],emb=config['emb'])
+            ModelTrainer.train(model=model,train_data_loader_list=train_data_loader_list,val_data_loader_list=val_data_loader_list,validate=True,config=config)
+
         case 1:
             """
             App 1.
@@ -64,7 +104,7 @@ def app_train(config: dict):
             graph_type_list=['ladder','grid','tree','erdos_renyi','barabasi_albert','community','caveman']
             val_dataset_list=[]
             for graph_type in graph_type_list:
-                dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_{graph_type}",path="tgnn",dir_type="train")
+                dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_{graph_type}",path="tgnn",dir_type="val")
                 for dataset_dict in dataset_dict_list:
                     for _,dataset in dataset_dict.items():
                         val_dataset_list.append(dataset)
