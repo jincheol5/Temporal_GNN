@@ -23,7 +23,7 @@ class ModelTrainUtils:
                 tar: [B,1]
                 n_mask: [B,N,], neighbor mask of target nodes
                 tar_label: [B,1]
-                label: [B,N,1]
+                label: [N,1]
                 edge_index: [2,E]
         """
         data_loader=[]
