@@ -167,6 +167,7 @@ class GraphUtils:
         for graph_type,graph_list in tqdm(graph_list_dict.items(),desc=f"Converting all type graphs..."):
             dataset_dict_list=GraphUtils.convert_to_dataset_dict_list(graph_list=graph_list,graph_type=graph_type)
             dataset_dict_list_all_type[graph_type]=dataset_dict_list
+        return dataset_dict_list_all_type
 
 class GraphAnalysis:
     @staticmethod

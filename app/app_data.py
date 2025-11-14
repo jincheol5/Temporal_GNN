@@ -23,18 +23,23 @@ def app_data(config: dict):
 
             dataset_dict_list_all_type=GraphUtils.convert_to_dataset_dict_list_all_type(graph_list_dict=train_20)
             DataUtils.save_dataset_dict_list_all_type(dataset_dict_list_all_type=dataset_dict_list_all_type,file_name="train_20",dir_type="train")
+            print(f"Finish train_20")
             
             dataset_dict_list_all_type=GraphUtils.convert_to_dataset_dict_list_all_type(graph_list_dict=val_20)
             DataUtils.save_dataset_dict_list_all_type(dataset_dict_list_all_type=dataset_dict_list_all_type,file_name="val_20",dir_type="val")
+            print(f"Finish val_20")
 
             dataset_dict_list_all_type=GraphUtils.convert_to_dataset_dict_list_all_type(graph_list_dict=test_20)
             DataUtils.save_dataset_dict_list_all_type(dataset_dict_list_all_type=dataset_dict_list_all_type,file_name="test_20",dir_type="test")
+            print(f"Finish test_20")
 
             dataset_dict_list_all_type=GraphUtils.convert_to_dataset_dict_list_all_type(graph_list_dict=test_50)
             DataUtils.save_dataset_dict_list_all_type(dataset_dict_list_all_type=dataset_dict_list_all_type,file_name="test_50",dir_type="test")
+            print(f"Finish test_50")
 
             dataset_dict_list_all_type=GraphUtils.convert_to_dataset_dict_list_all_type(graph_list_dict=test_100)
             DataUtils.save_dataset_dict_list_all_type(dataset_dict_list_all_type=dataset_dict_list_all_type,file_name="test_100",dir_type="test")
+            print(f"Finish test_100")
 
         case 2:
             """
