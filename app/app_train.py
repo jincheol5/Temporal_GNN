@@ -26,40 +26,54 @@ def app_train(config: dict):
             App 1.
             train 
             """
+            """
+            wandb
+            """
             if config['wandb']:
-                if config['processor']=='mpnn':
-                    wandb.init(project="TGNN",name=f"{config['model']}_{config['aggr']}_{config['seed']}_{config['lr']}_{config['batch_size']}")
-                else:
-                    wandb.init(project="TGNN",name=f"{config['model']}_{config['processor']}_{config['seed']}_{config['lr']}_{config['batch_size']}")
+                if config['model']=='tgat':
+                    wandb.init(project="TGNN",name=f"{config['model']}_{config['seed']}_{config['lr']}_{config['batch_size']}")
+                else: # tgn
+                    wandb.init(project="TGNN",name=f"{config['model']}_{config['emb']}_{config['seed']}_{config['lr']}_{config['batch_size']}")
                 wandb.config.update(config)
 
             """
-            Data load and preprocess
-                graph_list_dict:
-                    graph_list_dict['ladder']=ladder_graph_list
-                    graph_list_dict['grid']=grid_graph_list
-                    graph_list_dict['tree']=tree_graph_list
-                    graph_list_dict['erdos_renyi']=Erdos_Renyi_graph_list
-                    graph_list_dict['barabasi_albert']=Barabasi_Albert_graph_list
-                    graph_list_dict['community']=community_graph_list
-                    graph_list_dict['caveman']=caveman_graph_list
+            train data loader list
             """
-            train_20=DataUtils.DataLoader.load_from_pickle("train_20","graph")
-            val_20=DataUtils.DataLoader.load_from_pickle("val_20","graph")
+            graph_type_list=['ladder','grid','tree','erdos_renyi','barabasi_albert','community','caveman']
+            train_dataset_list=[]
+            for graph_type in graph_type_list:
+                dataset_dict_list=DataUtils.load_from_pickle(file_name=f"train_20_{graph_type}",path="tgnn",dir_type="train")
+                for dataset_dict in dataset_dict_list:
+                    if config['random_src']:
+                        random_src_id=random.randrange(20)
+                        dataset=dataset_dict[random_src_id]
+                        train_dataset_list.append(dataset)
+                    else:
+                        for _,dataset in dataset_dict.items():
+                            train_dataset_list.append(dataset)
+            
+            train_data_loader_list=[]
+            for dataset in train_dataset_list:
+                data_loader=ModelTrainUtils.get_data_loader(dataset=dataset,batch_size=config['batch_size'])
+                train_data_loader_list.append(data_loader)
+            print(f"train_data_loader_list is ready!")
 
-            train_graph_list=[]
-            for _,graph_list in tqdm(train_20.items()):
-                train_graph_list+=graph_list
-            train_batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=train_graph_list,random_src=config['random_src'],batch_size=config['batch_size'])
+            """
+            val data loader list
+            """
+            graph_type_list=['ladder','grid','tree','erdos_renyi','barabasi_albert','community','caveman']
+            val_dataset_list=[]
+            for graph_type in graph_type_list:
+                dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_{graph_type}",path="tgnn",dir_type="train")
+                for dataset_dict in dataset_dict_list:
+                    for _,dataset in dataset_dict.items():
+                        val_dataset_list.append(dataset)
 
-            print(f"preprocess train finish")
-
-            val_graph_list=[]
-            for _,graph_list in tqdm(val_20.items()):
-                val_graph_list+=graph_list
-            val_batch_loader_list=ModelTrainUtils.get_batch_loader_list(graph_list=val_graph_list,random_src=config['random_src'],batch_size=config['batch_size'])
-
-            print(f"preprocess val finish")
+            val_data_loader_list=[]
+            for dataset in val_dataset_list:
+                data_loader=ModelTrainUtils.get_data_loader(dataset=dataset,batch_size=config['batch_size'])
+                val_data_loader_list.append(data_loader)
+            print(f"val_data_loader_list is ready!")
 
             """
             model setting and training
@@ -69,7 +83,7 @@ def app_train(config: dict):
                     model=TGAT(node_dim=1,latent_dim=config['latent_dim'])
                 case 'tgn':
                     model=TGN(node_dim=1,latent_dim=config['latent_dim'],emb=config['emb'])
-            ModelTrainer.train(model=model,train_batch_loader_list=train_batch_loader_list,val_batch_loader_list=val_batch_loader_list,validate=True,config=config)
+            ModelTrainer.train(model=model,train_data_loader_list=train_data_loader_list,val_data_loader_list=val_data_loader_list,validate=True,config=config)
 
             """
             save model
@@ -80,7 +94,7 @@ def app_train(config: dict):
                         model_name=f"tgat_{config['seed']}_{config['lr']}_{config['batch_size']}"
                     case 'tgn':
                         model_name=f"tgn_{config['emb']}_{config['seed']}_{config['lr']}_{config['batch_size']}"
-            DataUtils.DataLoader.save_model_parameter(model=model,model_name=model_name)
+                DataUtils.save_model_parameter(model=model,model_name=model_name)
 
 if __name__=="__main__":
     """
@@ -110,7 +124,7 @@ if __name__=="__main__":
     parser.add_argument("--save_model",type=int,default=0)
 
     # 평가
-    parser.add_argument("--test_num_nodes",type=int,default=20)
+    parser.add_argument("--num_nodes",type=int,default=20)
     args=parser.parse_args()
 
     config={
@@ -133,6 +147,6 @@ if __name__=="__main__":
         'wandb':args.wandb,
         'save_model':args.save_model,
         # 평가
-        'test_num_nodes':args.test_num_nodes
+        'num_nodes':args.num_nodes
     }
     app_train(config=config)
