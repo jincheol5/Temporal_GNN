@@ -64,6 +64,9 @@ class Metrics:
         """
         pred=torch.sigmoid(logit) # [N,1]
         pred_label=(pred>=0.5).float() # [N,1]
+
+        print(f"pred_label: {pred_label}")
+
         correct=(pred_label==label.float()).float() # [N,1]
         acc=correct.mean() # scalar []
         return acc.cpu().item()
