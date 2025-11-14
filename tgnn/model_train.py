@@ -2,6 +2,7 @@ import wandb
 import torch
 import numpy as np
 from tqdm import tqdm
+from .graph_utils import GraphAnalysis
 from .model_train_utils import EarlyStopping
 from .metrics import Metrics
 
@@ -89,6 +90,8 @@ class ModelTrainer:
                 last_label=data_loader[-1]['label'][-1] # [N,1]
                 tar_label_list=[tar_label.to(device) for tar_label in tar_label_list]
                 last_label=last_label.to(device)
+
+                print(f"last_label tR ratio: {GraphAnalysis.check_reachability_ratio(r=last_label)}")
 
                 output=model(data_loader=data_loader,device=device)
                 pred_step_logit_list=output['step_logit_list']
