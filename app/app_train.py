@@ -41,9 +41,8 @@ def app_train(config: dict):
             dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_barabasi_albert",path="tgnn",dir_type="val")
             val_dataset_list=[]
             for dataset_dict in dataset_dict_list:
-                random_src_id=random.randrange(20)
-                dataset=dataset_dict[random_src_id]
-                val_dataset_list.append(dataset)
+                for _,dataset in dataset_dict.items():
+                    val_dataset_list.append(dataset)
 
             val_data_loader_list=[]
             for dataset in val_dataset_list:
