@@ -68,8 +68,8 @@ class ModelTrainer:
             validate
             """
             if validate:
-                acc=ModelTrainer.test(model=model,data_loader_list=val_data_loader_list)
-                print(f"{epoch+1} epoch tR validation acc: {acc}")
+                step_acc,last_acc=ModelTrainer.test(model=model,data_loader_list=val_data_loader_list)
+                print(f"{epoch+1} epoch tR validation step_acc: {step_acc} last_acc: {last_acc}")
 
     @staticmethod
     def test(model,data_loader_list):
