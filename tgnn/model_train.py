@@ -44,6 +44,8 @@ class ModelTrainer:
                 optimizer.step()
 
             epoch_loss=torch.stack(loss_list).mean().item()
+            print(f"Epoch Loss: {epoch_loss}")
+            
             """
             Early stopping
             """
