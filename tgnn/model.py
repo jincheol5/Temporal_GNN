@@ -72,16 +72,20 @@ class TGAT(nn.Module):
         t=data_loader[-1]['t'][-1] # [N,1]
         edge_index=data_loader[-1]['edge_index'] # [2,E]
         adj_mask=GraphUtils.get_adj_mask(num_nodes=num_nodes,edge_index=edge_index) # [N,N]
+        x=x.to(device)
+        t=t.to(device)
+        edge_index=edge_index.to(device)
+        adj_mask=adj_mask.to(device)
 
         # target vector (all nodes)
-        tar_hidden_ft=torch.zeros((num_nodes,self.latent_dim),dtype=torch.float,device=x.device) # [N,latent_dim]
+        tar_hidden_ft=torch.zeros((num_nodes,self.latent_dim),dtype=torch.float,device=device) # [N,latent_dim]
         tar_vec=torch.cat([x,tar_hidden_ft],dim=-1) # [N,node_dim+latent_dim]
-        tar_t=torch.zeros((num_nodes,1),dtype=torch.float,device=x.device) # [N,1]
+        tar_t=torch.zeros((num_nodes,1),dtype=torch.float,device=device) # [N,1]
         encoded_tar_t=self.time_encoder(tar_t) # [N,latent_dim]
         tar_h=torch.cat([tar_vec,encoded_tar_t],dim=-1) # [N,node_dim+latent_dim+latent_dim]
 
         # neighbor
-        hidden_ft=torch.zeros((num_nodes,self.latent_dim),dtype=torch.float,device=x.device) # [N,latent_dim]
+        hidden_ft=torch.zeros((num_nodes,self.latent_dim),dtype=torch.float,device=device) # [N,latent_dim]
         x=torch.cat([x,hidden_ft],dim=-1) # [N,node_dim+latent_dim]
         encoded_t=self.time_encoder(t) # [N,latent_dim]
         h=torch.cat([x,encoded_t],dim=-1) # [N,node_dim+latent_dim+latent_dim]
@@ -191,11 +195,15 @@ class TGN(nn.Module):
         t=data_loader[-1]['t'][-1] # [N,1]
         edge_index=data_loader[-1]['edge_index'] # [2,E]
         adj_mask=GraphUtils.get_adj_mask(num_nodes=num_nodes,edge_index=edge_index) # [N,N]
+        x=x.to(device)
+        t=t.to(device)
+        edge_index=edge_index.to(device)
+        adj_mask=adj_mask.to(device)
 
         # target vector (all nodes)
         tar_hidden_ft=last_memory # [N,latent_dim]
         tar_vec=torch.cat([x,tar_hidden_ft],dim=-1) # [N,node_dim+latent_dim]
-        tar_t=torch.zeros((num_nodes,1),dtype=torch.float,device=x.device) # [N,1]
+        tar_t=torch.zeros((num_nodes,1),dtype=torch.float,device=device) # [N,1]
         encoded_tar_t=self.time_encoder(tar_t) # [N,latent_dim]
         tar_h=torch.cat([tar_vec,encoded_tar_t],dim=-1) # [N,node_dim+latent_dim+latent_dim]
 
