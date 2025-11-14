@@ -11,7 +11,7 @@ def app_analysis(config:dict):
             """
             print(f"<<{config['mode']}_{config['num_nodes']}_{config['graph_type']} graphs statistics result>>")
             
-            data_dict=DataUtils.load_from_pickle(file_name=f"{config['mode']}_{config['num_nodes']}_parallel_{graph_type}",path='trne',dir_type=config['mode'])
+            data_dict=DataUtils.load_from_pickle(file_name=f"{config['mode']}_{config['num_nodes']}_parallel_{config['graph_type']}",path='trne',dir_type=config['mode'])
             data_list=[]
             for _,src_dict in data_dict.items():
                 for _,data in src_dict.items():
@@ -24,7 +24,7 @@ def app_analysis(config:dict):
             mean_ratio=lst.mean()
             max_ratio=lst.max()
             min_ratio=lst.min()
-            print(f"{config['mode']}_{config['num_nodes']}_{graph_type} graphs tR ratio mean: {mean_ratio} max: {max_ratio} min: {min_ratio}")
+            print(f"{config['mode']}_{config['num_nodes']}_{config['graph_type']} graphs tR ratio mean: {mean_ratio} max: {max_ratio} min: {min_ratio}")
             print()
 
         case 1:
