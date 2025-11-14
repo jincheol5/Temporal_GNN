@@ -96,6 +96,6 @@ class ModelTrainer:
                 last_acc=Metrics.compute_last_tR_acc(logit=pred_last_logit,label=last_label)
                 step_acc_list.append(step_acc)
                 last_acc_list.append(last_acc)
-        step_acc=torch.stack(step_acc_list).mean().item()
-        last_acc=torch.stack(last_acc_list).mean().item()
+        step_acc=float(np.mean(step_acc_list))
+        last_acc=float(np.mean(last_acc_list))
         return step_acc,last_acc

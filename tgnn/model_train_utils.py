@@ -35,9 +35,9 @@ class ModelTrainUtils:
             batch_n_mask=torch.stack([e['n_mask'] for e in batch_event_dicts],dim=0) # [B,N,]
             batch_label=torch.stack([e['label'] for e in batch_event_dicts],dim=0) # [B,N,1]
 
-            batch_src=torch.tensor([e['src'] for e in batch_event_dicts]).unsqueeze(1) # [B,1]
-            batch_tar=torch.tensor([e['tar'] for e in batch_event_dicts]).unsqueeze(1) # [B,1]
-            batch_tar_label=torch.tensor([e['tar_label'] for e in batch_event_dicts]).unsqueeze(1) # [B,1]
+            batch_src=torch.tensor([e['src'] for e in batch_event_dicts],dtype=torch.int32).unsqueeze(1) # [B,1]
+            batch_tar=torch.tensor([e['tar'] for e in batch_event_dicts],dtype=torch.int32).unsqueeze(1) # [B,1]
+            batch_tar_label=torch.tensor([e['tar_label'] for e in batch_event_dicts],dtype=torch.float32).unsqueeze(1) # [B,1]
 
             edge_index=batch_event_dicts[0]['edge_index'] # [2,E]
 

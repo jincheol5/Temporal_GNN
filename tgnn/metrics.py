@@ -44,13 +44,11 @@ class Metrics:
         Output:
             Accuracy
         """
-        print(type(logit_list[0]))
-        print(type(label_list[0]))
         acc_list=[]
         for logit,label in zip(logit_list,label_list):
             pred=torch.sigmoid(logit) 
             pred_label=(pred>=0.5).float()   
-            correct=(pred_label==label.float()).float()
+            correct=(pred_label==label).float()
             step_acc=correct.mean()
             acc_list.append(step_acc)
         acc=torch.stack(acc_list).mean() 
