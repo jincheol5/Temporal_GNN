@@ -13,12 +13,13 @@ def app_data(config: dict):
             """
             App 1.
             Convert and save all type graph_list_dict to dataset_dict_list_all_type
+                num_nodes: 20, 50, 100 
             """
-            train_20=DataUtils.load_from_pickle("train_20","graph")
-            val_20=DataUtils.load_from_pickle("val_20","graph")
-            test_20=DataUtils.load_from_pickle("test_20","graph")
-            test_50=DataUtils.load_from_pickle("test_50","graph")
-            test_100=DataUtils.load_from_pickle("test_100","graph")
+            train_20=DataUtils.load_from_pickle(file_name="train_20",path="trne",dir_type="graph")
+            val_20=DataUtils.load_from_pickle(file_name="val_20",path="trne",dir_type="graph")
+            test_20=DataUtils.load_from_pickle(file_name="test_20",path="trne",dir_type="graph")
+            test_50=DataUtils.load_from_pickle(file_name="test_50",path="trne",dir_type="graph")
+            test_100=DataUtils.load_from_pickle(file_name="test_100",path="trne",dir_type="graph")
 
             dataset_dict_list_all_type=GraphUtils.convert_to_dataset_dict_list_all_type(graph_list_dict=train_20)
             DataUtils.save_dataset_dict_list_all_type(dataset_dict_list_all_type=dataset_dict_list_all_type,file_name="train_20",dir_type="train")
@@ -40,7 +41,7 @@ def app_data(config: dict):
             App 2.
             Convert and save single type graph_list to dataset_dict_list 
             """
-            graph_list_dict=DataUtils.load_from_pickle(f"{config['mode']}_{config['num_nodes']}","graph")
+            graph_list_dict=DataUtils.load_from_pickle(file_name=f"{config['mode']}_{config['num_nodes']}",path="trne",dir_type="graph")
             graph_list=graph_list_dict[config['graph_type']]
             dataset_dict_list=GraphUtils.convert_to_dataset_dict_list(graph_list=graph_list,graph_type=config['graph_type'])
             DataUtils.save_dataset_dict_list(dataset_dict_list=dataset_dict_list,file_name=f"{config['mode']}_{config['num_nodes']}_{config['graph_type']}",dir_type=config['mode'])

@@ -9,7 +9,6 @@ from .graph_utils import GraphUtils
 
 
 class ModelTrainUtils:
-
     @staticmethod
     def get_data_loader(dataset:list,batch_size:int):
         """
@@ -39,6 +38,8 @@ class ModelTrainUtils:
             batch_tar=torch.tensor([e['tar'] for e in batch_event_dicts]).unsqueeze(1) # [B,1]
             batch_tar_label=torch.tensor([e['tar_label'] for e in batch_event_dicts]).unsqueeze(1) # [B,1]
 
+            edge_index=batch_event_dicts[0]['edge_index'] # [2,E]
+
             data_loader.append({
                 'x':batch_x,
                 't':batch_t,
@@ -46,7 +47,8 @@ class ModelTrainUtils:
                 'tar':batch_tar,
                 'n_mask':batch_n_mask,
                 'tar_label':batch_tar_label,
-                'label':batch_label
+                'label':batch_label,
+                'edge_index':edge_index
             })
         return data_loader
 

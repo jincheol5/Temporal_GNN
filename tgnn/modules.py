@@ -33,119 +33,6 @@ class TimeEncoder(nn.Module):
         output=torch.cos(self.w(timestamps)) # [batch_size,N,time_dim]
         return output
 
-class TimeProjection(nn.Module):
-    def __init__(self,latent_dim):
-        super().__init__()
-        self.w=nn.Linear(in_features=1,out_features=latent_dim)
-
-    def forward(self,target_memory,delta_t):
-        """
-        Input:
-            target_memory: [batch_size,latent_dim]
-            delta_t: [batch_size,1]
-        Output:
-            z: [batch_size,latent_dim]
-        """
-        delta_t_vec=self.w(delta_t) # [batch_size,latent_dim]
-        delta_t_vec=delta_t_vec+1 # [batch_size,latent_dim]
-        z=torch.mul(delta_t_vec,target_memory) # [batch_size,latent_dim]
-        return z
-
-class GraphAttention(nn.Module):
-    def __init__(self,node_dim,latent_dim):
-        super().__init__()
-        self.query_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
-        self.key_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
-        self.value_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
-        self.ffn=nn.Sequential(
-            nn.Linear(latent_dim+node_dim+latent_dim+latent_dim,latent_dim),
-            nn.ReLU(),
-            nn.Linear(latent_dim,latent_dim)
-        )
-
-    def forward(self,target,h,neighbor_mask,step:Literal['step','last']='step'):
-        """
-        Input:
-            step
-                target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
-                h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
-                neighbor_mask: [batch_size,N,], neighbor node mask
-            last
-                target: [N,node_dim+latent_dim+latent_dim], target node feature||time_feature
-                h: [N,node_dim+latent_dim+latent_dim], all node feature||time_feature
-                neighbor_mask: [N,N], neighbor node mask
-        Output:
-            z: [batch_size,latent_dim]
-        """
-        if step=='step':
-            feature_dim=target.size(1)
-
-            q=self.query_linear(target) # [batch_size,latent_dim]
-            k=self.key_linear(h) # [batch_size,N,latent_dim]
-            v=self.value_linear(h) # [batch_size,N,latent_dim]
-
-            q=q.unsqueeze(1) # [batch_size,1,latent_dim]
-            attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [batch_size,1,latent_dim] X [batch_size,latent_dim,N] = [batch_size,1,N]
-
-            neighbor_mask=neighbor_mask.unsqueeze(1) # [batch_size,1,N]
-            attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf')) # [batch_size,1,N]
-
-            attention_weight=F.softmax(attention_scores,dim=-1) # [batch_size,1,N]
-
-            neighbor_weight_sum=torch.matmul(attention_weight,v) # [batch_size,1,latent_dim]
-            neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [batch_size,latent_dim]
-
-            z=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
-            z=self.ffn(z) # [batch_size,latent_dim]
-        else: # last
-            feature_dim=target.size(1)
-
-            q=self.query_linear(target) # [N,latent_dim]
-            k=self.key_linear(h) # [N,latent_dim]
-            v=self.value_linear(h) # [N,latent_dim]
-
-            q=q.unsqueeze(1) # [N,1,latent_dim] 
-            k=k.unsqueeze(0) # [1,N,latent_dim]
-            v=v.unsqueeze(0) # [1,N,latent_dim]
-
-            attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [N,1,latent_dim] X [1,latent_dim,N](broadcast됨) = [N,1,N] 
-
-            neighbor_mask=neighbor_mask.unsqueeze(1) # [N,1,N] 
-            attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf'))
-
-            attention_weight=F.softmax(attention_scores,dim=-1) # [N,1,N]
-
-            neighbor_weight_sum=torch.matmul(attention_weight,v) # [N,1,latent_dim]
-            neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [N,latent_dim]
-
-            z=torch.cat([neighbor_weight_sum,target],dim=-1) # [N,latent_dim||node+latent_dim+latent_dim]
-            z=self.ffn(z) # [N,latent_dim]
-        return z
-
-class TemporalGraphSum(nn.Module):
-    def __init__(self,node_dim,latent_dim):
-        super().__init__()
-        self.w_1=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
-        self.w_2=nn.Linear(in_features=node_dim+latent_dim+latent_dim+latent_dim,out_features=latent_dim)
-        self.relu=nn.ReLU()
-
-    def forward(self,target,h,neighbor_mask):
-        """
-        Input:
-            target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
-            h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
-            neighbor_mask: [batch_size,N,], neighbor node mask
-        Output:
-            z: [batch_size,latent_dim]
-        """
-        h=self.w_1(h) # [batch_size,N,latent_dim] 
-        expanded_neighbor_mask=neighbor_mask.unsqueeze(-1).float() # [batch_size,N,1]
-        h_hat=(h*expanded_neighbor_mask).sum(dim=1) # [batch_size,latent_dim]
-        h_hat=self.relu(h_hat) # [batch_size,latent_dim] 
-        z=torch.cat([target,h_hat],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim+latent_dim]
-        z=self.w_2(z) # [batch_size,latent_dim]
-        return z # [batch_size,latent_dim]
-
 class MemoryUpdater(nn.Module):
     def __init__(self,node_dim,latent_dim):
         super().__init__()
@@ -219,4 +106,144 @@ class MemoryUpdater(nn.Module):
         memory[unique_nodes]=new_memory # [N,latent_dim]
 
         return memory # [N,latent_dim]
+
+"""
+Embedding Modules
+1. TimeProjection
+2. GraphAttention
+3. GraphSum
+"""
+class TimeProjection(nn.Module):
+    def __init__(self,latent_dim):
+        super().__init__()
+        self.w=nn.Linear(in_features=1,out_features=latent_dim)
+
+    def forward(self,target_memory,delta_t):
+        """
+        Input:
+            target_memory: [batch_size,latent_dim] or [N,latent_dim]
+            delta_t: [batch_size,1] or [N,1]
+        Output:
+            z: [batch_size,latent_dim]
+        """
+        delta_t_vec=self.w(delta_t) # [batch_size,latent_dim] or [N,latent_dim]
+        delta_t_vec=delta_t_vec+1 # [batch_size,latent_dim] or [N,latent_dim]
+        z=torch.mul(delta_t_vec,target_memory) # [batch_size,latent_dim] or [N,latent_dim]
+        return z
+
+class GraphAttention(nn.Module):
+    def __init__(self,node_dim,latent_dim):
+        super().__init__()
+        self.query_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.key_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.value_linear=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.ffn=nn.Sequential(
+            nn.Linear(latent_dim+node_dim+latent_dim+latent_dim,latent_dim),
+            nn.ReLU(),
+            nn.Linear(latent_dim,latent_dim)
+        )
+
+    def forward(self,target,h,neighbor_mask,step:Literal['step','last']='step'):
+        """
+        Input:
+            step
+                target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
+                h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+                neighbor_mask: [batch_size,N,], neighbor node mask
+            last
+                target: [N,node_dim+latent_dim+latent_dim], target node feature||time_feature
+                h: [N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+                neighbor_mask: [N,N], neighbor node mask
+        Output:
+            step
+                z: [batch_size,latent_dim]
+            last
+                z: [N,latent_dim]
+        """
+        if step=='step':
+            feature_dim=target.size(1)
+
+            q=self.query_linear(target) # [batch_size,latent_dim]
+            k=self.key_linear(h) # [batch_size,N,latent_dim]
+            v=self.value_linear(h) # [batch_size,N,latent_dim]
+
+            q=q.unsqueeze(1) # [batch_size,1,latent_dim]
+            attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [batch_size,1,latent_dim] X [batch_size,latent_dim,N] = [batch_size,1,N]
+
+            neighbor_mask=neighbor_mask.unsqueeze(1) # [batch_size,1,N]
+            attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf')) # [batch_size,1,N]
+
+            attention_weight=F.softmax(attention_scores,dim=-1) # [batch_size,1,N]
+
+            neighbor_weight_sum=torch.matmul(attention_weight,v) # [batch_size,1,latent_dim]
+            neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [batch_size,latent_dim]
+
+            z=torch.cat([neighbor_weight_sum,target],dim=-1) # [batch_size,latent_dim||node+latent_dim+latent_dim]
+            z=self.ffn(z) # [batch_size,latent_dim]
+        else: # last
+            feature_dim=target.size(1)
+
+            q=self.query_linear(target) # [N,latent_dim]
+            k=self.key_linear(h) # [N,latent_dim]
+            v=self.value_linear(h) # [N,latent_dim]
+
+            q=q.unsqueeze(1) # [N,1,latent_dim] 
+            k=k.unsqueeze(0) # [1,N,latent_dim]
+            v=v.unsqueeze(0) # [1,N,latent_dim]
+
+            attention_scores=torch.matmul(q,k.transpose(1,2))/(feature_dim**0.5) # [N,1,latent_dim] X [1,latent_dim,N](broadcast됨) = [N,1,N] 
+
+            neighbor_mask=neighbor_mask.unsqueeze(1) # [N,1,N] 
+            attention_scores=attention_scores.masked_fill(~neighbor_mask,float('-inf'))
+
+            attention_weight=F.softmax(attention_scores,dim=-1) # [N,1,N]
+
+            neighbor_weight_sum=torch.matmul(attention_weight,v) # [N,1,latent_dim]
+            neighbor_weight_sum=neighbor_weight_sum.squeeze(1) # [N,latent_dim]
+
+            z=torch.cat([neighbor_weight_sum,target],dim=-1) # [N,latent_dim||node+latent_dim+latent_dim]
+            z=self.ffn(z) # [N,latent_dim]
+        return z
+
+class GraphSum(nn.Module):
+    def __init__(self,node_dim,latent_dim):
+        super().__init__()
+        self.w_1=nn.Linear(in_features=node_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.w_2=nn.Linear(in_features=node_dim+latent_dim+latent_dim+latent_dim,out_features=latent_dim)
+        self.relu=nn.ReLU()
+
+    def forward(self,target,h,neighbor_mask,step:Literal['step','last']='step'):
+        """
+        Input:
+            step
+                target: [batch_size,node_dim+latent_dim+latent_dim], target node feature||time_feature
+                h: [batch_size,N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+                neighbor_mask: [batch_size,N,], neighbor node mask
+            last
+                target: [N,node_dim+latent_dim+latent_dim], target node feature||time_feature
+                h: [N,node_dim+latent_dim+latent_dim], all node feature||time_feature
+                neighbor_mask: [N,N], neighbor node mask
+        Output:
+            step
+                z: [batch_size,latent_dim]
+            last
+                z: [N,latent_dim]
+        """
+        if step=='step':
+            h=self.w_1(h) # [batch_size,N,latent_dim] 
+            expanded_neighbor_mask=neighbor_mask.unsqueeze(-1).float() # [batch_size,N,1]
+            h_hat=(h*expanded_neighbor_mask).sum(dim=1) # [batch_size,latent_dim]
+            h_hat=self.relu(h_hat) # [batch_size,latent_dim] 
+            z=torch.cat([target,h_hat],dim=-1) # [batch_size,node_dim+latent_dim+latent_dim+latent_dim]
+            z=self.w_2(z) # [batch_size,latent_dim]
+        else: # last
+            h=self.w_1(h) # [N,latent_dim]
+            h=h.unsqueeze(0) # [1,N,latent_dim]
+            expanded_neighbor_mask=neighbor_mask.unsqueeze(-1).float() # [N,N,1]
+            h_hat=(h*expanded_neighbor_mask).sum(dim=1) # [N,latent_dim]
+            h_hat=self.relu(h_hat) # [N,latent_dim]                       
+            z=torch.cat([target,h_hat],dim=-1) # [N,node_dim+latent_dim+latent_dim+latent_dim]         
+            z=self.w_2(z) # [N,latent_dim]                               
+        return z 
+
 

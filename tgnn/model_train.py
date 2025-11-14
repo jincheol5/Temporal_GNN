@@ -24,18 +24,24 @@ class ModelTrainer:
         for epoch in tqdm(range(config['epochs']),desc=f"Training..."):
             model.train()
             loss_list=[]
-            for train_data_loader in train_data_loader_list:
-                label_list=[batch['label'] for batch in train_data_loader]
-                label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
-                label=label.to(device)
+            for train_data_loader in tqdm(train_data_loader_list,desc=f"Training {epoch+1} epoch..."):
+                tar_label_list=[batch['tar_label'] for batch in train_data_loader]
+                tar_label=torch.stack(tar_label_list,dim=0) # [seq_len,B,1]
+                last_label=train_data_loader[-1]['label'] # [N,1]
+                tar_label=tar_label.to(device)
+                last_label=last_label.to(device)
 
-                pred_logit=model(batch_list=train_data_loader,device=device) # [seq_len,batch_size,1]
-                loss=Metrics.compute_tR_loss(logit=pred_logit,label=label)
-                loss_list.append(loss)
+                output=model(data_loader=train_data_loader,device=device)
+                pred_step_logit=output['step_logit']
+                pred_last_logit=output['last_logit']
+                step_loss=Metrics.compute_step_tR_loss(logit=pred_step_logit,label=tar_label)
+                last_loss=Metrics.compute_last_tR_loss(logit=pred_last_logit,label=last_label)
+                total_loss=step_loss+last_loss
+                loss_list.append(total_loss)
 
                 # back propagation
                 optimizer.zero_grad()
-                loss.backward()
+                total_loss.backward()
                 optimizer.step()
 
             epoch_loss=torch.stack(loss_list).mean().item()
@@ -49,7 +55,7 @@ class ModelTrainer:
                     model=pre_model
                     print(f"Early Stopping in epoch {epoch+1}")
                     break
-                    
+
             """
             wandb log
             """
@@ -75,13 +81,23 @@ class ModelTrainer:
         model test
         """
         with torch.no_grad():
-            acc_list=[]
-            for data_loader in data_loader_list:
-                label_list=[batch['label'] for batch in data_loader]
-                label=torch.stack(label_list,dim=0) # [seq_len,batch_size,1]
-                label=label.to(device)
+            step_acc_list=[]
+            last_acc_list=[]
+            for data_loader in tqdm(data_loader_list,desc=f"Evaluating..."):
+                tar_label_list=[batch['tar_label'] for batch in data_loader]
+                tar_label=torch.stack(tar_label_list,dim=0) # [seq_len,batch_size,1]
+                last_label=data_loader[-1]['label'] # [N,1]
+                tar_label=tar_label.to(device)
+                last_label=last_label.to(device)
 
-                pred_logit=model(batch_list=data_loader,device=device) # [seq_len,batch_size,1]
-                acc=Metrics.compute_tR_acc(logit=pred_logit,label=label)
-                acc_list.append(acc)
-        return torch.stack(acc_list).mean().item()
+                output=model(data_loader=data_loader,device=device)
+                pred_step_logit=output['step_logit']
+                pred_last_logit=output['last_logit']
+
+                step_acc=Metrics.compute_step_tR_acc(logit=pred_step_logit,label=tar_label)
+                last_acc=Metrics.compute_last_tR_acc(logit=pred_last_logit,label=last_label)
+                step_acc_list.append(step_acc)
+                last_acc_list.append(last_acc)
+        step_acc=torch.stack(step_acc_list).mean().item()
+        last_acc=torch.stack(last_acc_list).mean().item()
+        return step_acc,last_acc

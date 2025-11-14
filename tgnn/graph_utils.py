@@ -135,7 +135,7 @@ class GraphUtils:
         event_stream=GraphUtils.get_event_stream(graph=graph)
         dataset_dict={}
         for source_id in range(num_nodes):
-            dataset=GraphUtils.convert_to_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id)
+            dataset=GraphUtils.convert_to_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id,edge_index=edge_index)
             dataset_dict[source_id]=dataset
         return dataset_dict
     
