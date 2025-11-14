@@ -91,8 +91,6 @@ class ModelTrainer:
                 tar_label_list=[tar_label.to(device) for tar_label in tar_label_list]
                 last_label=last_label.to(device)
 
-                print(f"last_label tR ratio: {GraphAnalysis.check_reachability_ratio(r=last_label)}")
-
                 output=model(data_loader=data_loader,device=device)
                 pred_step_logit_list=output['step_logit_list']
                 pred_last_logit=output['last_logit']
