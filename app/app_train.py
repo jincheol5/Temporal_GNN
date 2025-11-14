@@ -25,7 +25,7 @@ def app_train(config: dict):
             """
             test
             """
-            dataset_dict_list=DataUtils.load_from_pickle(file_name=f"train_20_ladder",path="tgnn",dir_type="train")
+            dataset_dict_list=DataUtils.load_from_pickle(file_name=f"val_20_ladder",path="tgnn",dir_type="val")
             train_dataset_list=[]
             for dataset_dict in dataset_dict_list:
                 random_src_id=random.randrange(20)
