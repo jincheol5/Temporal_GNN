@@ -10,46 +10,58 @@ from .graph_utils import GraphUtils
 
 class ModelTrainUtils:
     @staticmethod
-    def get_data_loader(dataset:list,batch_size:int):
+    def get_data_loader(data_seq:list,batch_size:int):
         """
         Input:
-            dataset: list of event_dict
+            data_seq: List of data
+                data
+                    x: [N,1]
+                    t: [N,1]
+                    src: src id
+                    tar: tar id
+                    n_mask: [N,]
+                    tar_label: label (1.0 or 0.0)
+                    edge_index: [2,E]
+                    adj_mask: [N,N]
+                    label: [N,1]
             batch_size: batch size of edge_events
         Output:
-            data_loader: List of batch_dict
+            data_loader: List of batch_data
                 x: [B,N,1]
                 t: [B,N,1]
                 src: [B,1]
                 tar: [B,1]
                 n_mask: [B,N,], neighbor mask of target nodes
                 tar_label: [B,1]
-                label: [N,1]
                 edge_index: [2,E]
+                adj_mask: [N,N]
+                label: [N,1]
         """
         data_loader=[]
-        for i in range(0,len(dataset),batch_size):
-            batch_event_dicts=dataset[i:i+batch_size]
+        for i in range(0,len(data_seq),batch_size):
+            batch_data_seq=data_seq[i:i+batch_size]
 
-            batch_x=torch.stack([e['x'] for e in batch_event_dicts],dim=0) # [B,N,1]
-            batch_t=torch.stack([e['t'] for e in batch_event_dicts],dim=0) # [B,N,1]
-            batch_n_mask=torch.stack([e['n_mask'] for e in batch_event_dicts],dim=0) # [B,N,]
-            batch_label=torch.stack([e['label'] for e in batch_event_dicts],dim=0) # [B,N,1]
+            batch_x=torch.stack([e['x'] for e in batch_data_seq],dim=0) # [B,N,1]
+            batch_t=torch.stack([e['t'] for e in batch_data_seq],dim=0) # [B,N,1]
+            batch_src=torch.tensor([e['src'] for e in batch_data_seq],dtype=torch.int32).unsqueeze(1) # [B,1]
+            batch_tar=torch.tensor([e['tar'] for e in batch_data_seq],dtype=torch.int32).unsqueeze(1) # [B,1]
+            batch_n_mask=torch.stack([e['n_mask'] for e in batch_data_seq],dim=0) # [B,N,]
+            batch_tar_label=torch.tensor([e['tar_label'] for e in batch_data_seq],dtype=torch.float32).unsqueeze(1) # [B,1]
 
-            batch_src=torch.tensor([e['src'] for e in batch_event_dicts],dtype=torch.int32).unsqueeze(1) # [B,1]
-            batch_tar=torch.tensor([e['tar'] for e in batch_event_dicts],dtype=torch.int32).unsqueeze(1) # [B,1]
-            batch_tar_label=torch.tensor([e['tar_label'] for e in batch_event_dicts],dtype=torch.float32).unsqueeze(1) # [B,1]
-
-            edge_index=batch_event_dicts[0]['edge_index'] # [2,E]
+            edge_index=batch_data_seq[0]['edge_index'] # [2,E]
+            adj_mask=batch_data_seq[0]['adj_mask'] # [N,N]
+            label=batch_data_seq[0]['label'] # [N,1]
 
             data_loader.append({
-                'x':batch_x,
-                't':batch_t,
-                'src':batch_src,
-                'tar':batch_tar,
-                'n_mask':batch_n_mask,
-                'tar_label':batch_tar_label,
-                'label':batch_label,
-                'edge_index':edge_index
+                'x':batch_x, # [B,N,1]
+                't':batch_t, # [B,N,1]
+                'src':batch_src, # [B,1]
+                'tar':batch_tar, # [B,1]
+                'n_mask':batch_n_mask, # [B,N,]
+                'tar_label':batch_tar_label, # [B,1]
+                'edge_index':edge_index, # [2,E]
+                'adj_mask':adj_mask, # [N,N]
+                'label':label # [N,1]
             })
         return data_loader
 
