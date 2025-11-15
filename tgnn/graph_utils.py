@@ -65,7 +65,7 @@ class GraphUtils:
         return gamma
 
     @staticmethod
-    def convert_to_dataset(event_stream:list,num_nodes:int,source_id:int,edge_index:torch.Tensor):
+    def convert_to_data_seq(event_stream:list,num_nodes:int,source_id:int,edge_index:torch.Tensor):
         """
         Input:
             event_stream: List of edge_event tuple
@@ -73,89 +73,90 @@ class GraphUtils:
             source_id: source node id
             edge_index: [2,E]
         Output:
-            dataset: List of event_dict
-                event_dict:
+            data_seq: List of data
+                data:
                     x: [N,1]
                     t: [N,1]
                     src: src id
                     tar: tar id
                     n_mask: [N,]
                     tar_label: tar label (1.0 or 0.0)
-                    label: [N,1], label of all nodes
                     edge_index: [2,E]  
+                    adj_mask: [N,N]
+                    label: [N,1], label of all nodes
         """
-        dataset=[]
+        data_seq=[]
+        x=torch.zeros((num_nodes,1),dtype=torch.float) # [N,1]
+        x[source_id,0]=1.0
+        adj_mask=GraphUtils.get_adj_mask(num_nodes=num_nodes,edge_index=edge_index) # [N,N]
+
         num_edge_events=len(event_stream)
-        raw_node_feature=torch.zeros((num_edge_events,num_nodes),dtype=torch.float)
-        raw_node_feature[:,source_id]=1.0 
-        raw_node_feature=raw_node_feature.unsqueeze(-1) # [E,N,1]
-        x_list=list(torch.unbind(raw_node_feature,dim=0)) # List of [N,1]
         neighbor_mask=torch.zeros((num_edge_events,num_nodes),dtype=torch.bool) # [E,N]
         neighbor_history=[torch.zeros(num_nodes,dtype=torch.bool) for _ in range(num_nodes)] # List of [N,]
         gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,init=True) # [N,3]
-        for i,(edge_event,x) in enumerate(zip(event_stream,x_list)):
+        for i,edge_event in enumerate(event_stream):
             src,tar,ts=edge_event
 
             # compute tR step
             gamma=GraphUtils.compute_tR_step(num_nodes=num_nodes,source_id=source_id,edge_event=edge_event,gamma=gamma) # [N,3]
             
-            # save x,t,src,tar,n_mask,tar_label,label to event_dict
-            event_dict={}
-            event_dict['x']=x
+            # save x,t,src,tar,n_mask,tar_label,label to data
+            data={}
+            data['x']=x
 
             cur_t=gamma[:,-1:] # [N,1]
-            event_dict['t']=torch.abs(cur_t-ts) # [N,1] 
+            data['t']=torch.abs(cur_t-ts) # [N,1] 
             
-            event_dict['src']=src
-            event_dict['tar']=tar
+            data['src']=src
+            data['tar']=tar
             
             neighbor_history[tar][src]=True
             neighbor_mask[i]=neighbor_history[tar] # 참조가 아닌 복사(tensor index 대입)
-            event_dict['n_mask']=neighbor_mask[i]
+            data['n_mask']=neighbor_mask[i]
+            data['tar_label']=gamma[tar,0].item()
 
-            event_dict['tar_label']=gamma[tar,0].item()
-            event_dict['label']=gamma[:,0:1]
-            event_dict['edge_index']=edge_index
-            dataset.append(event_dict)
+            data['edge_index']=edge_index
+            data['adj_mask']=adj_mask
+            data['label']=gamma[:,0:1]
 
-        return dataset
+            data_seq.append(data)
+        return data_seq
 
     @staticmethod
-    def convert_to_dataset_dict(graph:nx.DiGraph):
+    def convert_to_dataset(graph:nx.DiGraph):
         """
         Input:
             graph
         Output:
-            dataset_dict
-                key: source_id
-                value: dataset
+            dataset: List of data
+                index=source id
         """
         num_nodes=graph.number_of_nodes()
         edge_index=GraphUtils.get_edge_index(graph=graph)
         event_stream=GraphUtils.get_event_stream(graph=graph)
-        dataset_dict={}
-        for source_id in range(num_nodes):
-            dataset=GraphUtils.convert_to_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id,edge_index=edge_index)
-            dataset_dict[source_id]=dataset
-        return dataset_dict
-    
+        dataset=[
+            GraphUtils.convert_to_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id,edge_index=edge_index) 
+            for source_id in range(num_nodes)]
+        return dataset
+
     @staticmethod
-    def convert_to_dataset_dict_list(graph_list:list,graph_type:str):
+    def convert_to_dataset_list(graph_list:list,graph_type:str):
         """
         Input:
             graph_list
         Output:
-            list of dataset_dict
+            List of dataset
+                index=graph id
         """
-        dataset_dict_list=[]
+        dataset_list=[]
         for graph in tqdm(graph_list,desc=f"Convert {graph_type} graph_list..."):
             graph.remove_edges_from(nx.selfloop_edges(graph))
-            dataset_dict=GraphUtils.convert_to_dataset_dict(graph=graph)
-            dataset_dict_list.append(dataset_dict)
-        return dataset_dict_list
+            dataset=GraphUtils.convert_to_dataset(graph=graph)
+            dataset_list.append(dataset)
+        return dataset_list
     
     @staticmethod
-    def convert_to_dataset_dict_list_all_type(graph_list_dict:dict):
+    def convert_to_dataset_list_dict(graph_list_dict:dict):
         """
         Input:
             graph_list_dict
@@ -163,11 +164,11 @@ class GraphUtils:
             dataset_dict_list_all_type
             dict of dataset_dict_list for all type graphs
         """
-        dataset_dict_list_all_type={}
+        dataset_list_dict={}
         for graph_type,graph_list in tqdm(graph_list_dict.items(),desc=f"Converting all type graphs..."):
-            dataset_dict_list=GraphUtils.convert_to_dataset_dict_list(graph_list=graph_list,graph_type=graph_type)
-            dataset_dict_list_all_type[graph_type]=dataset_dict_list
-        return dataset_dict_list_all_type
+            dataset_list=GraphUtils.convert_to_dataset_list(graph_list=graph_list,graph_type=graph_type)
+            dataset_list_dict[graph_type]=dataset_list
+        return dataset_list_dict
 
 class GraphAnalysis:
     @staticmethod

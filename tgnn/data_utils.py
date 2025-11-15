@@ -31,28 +31,16 @@ class DataUtils:
         return data
 
     @staticmethod
-    def save_dataset_dict_list(dataset_dict_list:list,file_name:str,graph_type:str,dir_type:Literal['train','val','test']):
-        DataUtils.save_to_pickle(data=dataset_dict_list,file_name=f"{file_name}_{graph_type}",path='tgnn',dir_type=dir_type)
-        print(f"Save {file_name}_{graph_type}!")
+    def save_dataset_list(dataset_list:list,file_name:str,graph_type:str,chunk_size:int,dir_type:Literal['train','val','test']):
+        chunk_list=[dataset_list[i:i+chunk_size] for i in range(0,len(dataset_list),chunk_size)]
+        for idx,chunk in tqdm(enumerate(chunk_list),desc=f"Saving {file_name}_{graph_type}_chunk..."):
+            DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_{graph_type}_chunk_{idx}",path='tgnn',dir_type=dir_type)
+        print(f"Save {file_name}_{graph_type}! chunk_size: {chunk_size}")
 
     @staticmethod
-    def save_dataset_dict_list_all_type(dataset_dict_list_all_type:dict,file_name:str,dir_type:Literal['train','val','test']):
-        for key,value in tqdm(dataset_dict_list_all_type.items(),desc=f"Save {file_name} ..."):
-            match key:
-                case 'ladder':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_ladder",path='tgnn',dir_type=dir_type)
-                case 'grid':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_grid",path='tgnn',dir_type=dir_type)
-                case 'tree':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_tree",path='tgnn',dir_type=dir_type)
-                case 'erdos_renyi':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_erdos_renyi",path='tgnn',dir_type=dir_type)
-                case 'barabasi_albert':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_barabasi_albert",path='tgnn',dir_type=dir_type)
-                case 'community':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_community",path='tgnn',dir_type=dir_type)
-                case 'caveman':
-                    DataUtils.save_to_pickle(data=value,file_name=file_name+"_caveman",path='tgnn',dir_type=dir_type)
+    def save_dataset_list_dict(dataset_list_dict:dict,file_name:str,chunk_size:int,dir_type:Literal['train','val','test']):
+        for key,value in tqdm(dataset_list_dict.items(),desc=f"Save {file_name} ..."):
+            DataUtils.save_dataset_list(dataset_list=value,file_name=file_name,graph_type=key,chunk_size=chunk_size,dir_type=dir_type)
 
     @staticmethod
     def save_model_parameter(model,model_name:str):
