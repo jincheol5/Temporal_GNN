@@ -34,14 +34,14 @@ class DataUtils:
     def save_dataset_list(dataset_list:list,file_name:str,chunk_size:int,dir_type:Literal['train','val','test']):
         chunk_list=[dataset_list[i:i+chunk_size] for i in range(0,len(dataset_list),chunk_size)]
         for idx,chunk in tqdm(enumerate(chunk_list),desc=f"Saving {file_name}_chunk..."):
-            DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_chunk_{idx}",path='tgnn',dir_type=dir_type)
+            DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_chunk_{chunk_size}_{idx}",path='tgnn',dir_type=dir_type)
         print(f"Save {file_name}! chunk_size: {chunk_size}")
 
     @staticmethod
     def save_dataset_list_each(dataset_list:list,file_name:str,graph_type:str,chunk_size:int,dir_type:Literal['train','val','test']):
         chunk_list=[dataset_list[i:i+chunk_size] for i in range(0,len(dataset_list),chunk_size)]
         for idx,chunk in tqdm(enumerate(chunk_list),desc=f"Saving {file_name}_{graph_type}_chunk..."):
-            DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_{graph_type}_chunk_{idx}",path='tgnn',dir_type=dir_type)
+            DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_{graph_type}_chunk_{chunk_size}_{idx}",path='tgnn',dir_type=dir_type)
         print(f"Save {file_name}_{graph_type}! chunk_size: {chunk_size}")
 
     @staticmethod
