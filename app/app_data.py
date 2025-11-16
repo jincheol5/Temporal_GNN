@@ -47,9 +47,9 @@ def app_data(config: dict):
             Convert and save single type graph_list to dataset_dict_list 
             """
             graph_list_dict=DataUtils.load_from_pickle(file_name=f"{config['mode']}_{config['num_nodes']}",path="trne",dir_type="graph")
-            graph_list=graph_list_dict[config['graph_type']]
-            dataset_dict_list=GraphUtils.convert_to_dataset_dict_list(graph_list=graph_list,graph_type=config['graph_type'])
-            DataUtils.save_dataset_dict_list(dataset_dict_list=dataset_dict_list,file_name=f"{config['mode']}_{config['num_nodes']}_{config['graph_type']}",dir_type=config['mode'])
+            dataset_list_dict=GraphUtils.convert_to_dataset_list_dict(graph_list_dict=graph_list_dict)
+            print(f"Done!")
+
 
 if __name__=="__main__":
     """

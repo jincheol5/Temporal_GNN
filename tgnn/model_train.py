@@ -2,6 +2,7 @@ import wandb
 import torch
 import numpy as np
 from tqdm import tqdm
+from .data_utils import DataUtils
 from .model_train_utils import EarlyStopping
 from .metrics import Metrics
 
@@ -26,7 +27,7 @@ class ModelTrainer:
             loss_list=[]
             for train_data_loader in tqdm(train_data_loader_list,desc=f"Training {epoch+1} epoch..."):
                 tar_label_list=[batch['tar_label'] for batch in train_data_loader] # List of [B,1], B는 각 element마다 다를 수 있음
-                last_label=train_data_loader[-1]['label'][-1] # [N,1]
+                last_label=train_data_loader[-1]['label'] # [N,1]
                 tar_label_list=[tar_label.to(device) for tar_label in tar_label_list]
                 last_label=last_label.to(device)
 
@@ -86,7 +87,7 @@ class ModelTrainer:
             last_acc_list=[]
             for data_loader in tqdm(data_loader_list,desc=f"Evaluating..."):
                 tar_label_list=[batch['tar_label'] for batch in data_loader]
-                last_label=data_loader[-1]['label'][-1] # [N,1]
+                last_label=data_loader[-1]['label'] # [N,1]
                 tar_label_list=[tar_label.to(device) for tar_label in tar_label_list]
                 last_label=last_label.to(device)
 

@@ -23,21 +23,25 @@ class ModelTrainUtils:
                     tar_label: label (1.0 or 0.0)
                     edge_index: [2,E]
                     adj_mask: [N,N]
-                    label: [N,1]
+                    label: [N,1], seq_step 마다 다름, 마지막 seq_step 값 참조 필요
             batch_size: batch size of edge_events
         Output:
-            data_loader: List of batch_data
-                x: [B,N,1]
-                t: [B,N,1]
-                src: [B,1]
-                tar: [B,1]
-                n_mask: [B,N,], neighbor mask of target nodes
-                tar_label: [B,1]
-                edge_index: [2,E]
-                adj_mask: [N,N]
-                label: [N,1]
+            data_loader: batch_data_seq
+                batch_data
+                    x: [B,N,1]
+                    t: [B,N,1]
+                    src: [B,1]
+                    tar: [B,1]
+                    n_mask: [B,N,], neighbor mask of target nodes
+                    tar_label: [B,1]
+                    edge_index: [2,E]
+                    adj_mask: [N,N]
+                    label: [N,1]
         """
         data_loader=[]
+        edge_index=data_seq[-1]['edge_index'] # [2,E]
+        adj_mask=data_seq[-1]['adj_mask'] # [N,N]
+        label=data_seq[-1]['label'] # [N,1]
         for i in range(0,len(data_seq),batch_size):
             batch_data_seq=data_seq[i:i+batch_size]
 
@@ -47,10 +51,6 @@ class ModelTrainUtils:
             batch_tar=torch.tensor([e['tar'] for e in batch_data_seq],dtype=torch.int32).unsqueeze(1) # [B,1]
             batch_n_mask=torch.stack([e['n_mask'] for e in batch_data_seq],dim=0) # [B,N,]
             batch_tar_label=torch.tensor([e['tar_label'] for e in batch_data_seq],dtype=torch.float32).unsqueeze(1) # [B,1]
-
-            edge_index=batch_data_seq[0]['edge_index'] # [2,E]
-            adj_mask=batch_data_seq[0]['adj_mask'] # [N,N]
-            label=batch_data_seq[0]['label'] # [N,1]
 
             data_loader.append({
                 'x':batch_x, # [B,N,1]

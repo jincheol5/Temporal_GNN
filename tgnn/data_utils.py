@@ -31,7 +31,14 @@ class DataUtils:
         return data
 
     @staticmethod
-    def save_dataset_list(dataset_list:list,file_name:str,graph_type:str,chunk_size:int,dir_type:Literal['train','val','test']):
+    def save_dataset_list(dataset_list:list,file_name:str,chunk_size:int,dir_type:Literal['train','val','test']):
+        chunk_list=[dataset_list[i:i+chunk_size] for i in range(0,len(dataset_list),chunk_size)]
+        for idx,chunk in tqdm(enumerate(chunk_list),desc=f"Saving {file_name}_chunk..."):
+            DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_chunk_{idx}",path='tgnn',dir_type=dir_type)
+        print(f"Save {file_name}! chunk_size: {chunk_size}")
+
+    @staticmethod
+    def save_dataset_list_each(dataset_list:list,file_name:str,graph_type:str,chunk_size:int,dir_type:Literal['train','val','test']):
         chunk_list=[dataset_list[i:i+chunk_size] for i in range(0,len(dataset_list),chunk_size)]
         for idx,chunk in tqdm(enumerate(chunk_list),desc=f"Saving {file_name}_{graph_type}_chunk..."):
             DataUtils.save_to_pickle(data=chunk,file_name=f"{file_name}_{graph_type}_chunk_{idx}",path='tgnn',dir_type=dir_type)
@@ -39,8 +46,15 @@ class DataUtils:
 
     @staticmethod
     def save_dataset_list_dict(dataset_list_dict:dict,file_name:str,chunk_size:int,dir_type:Literal['train','val','test']):
+        dataset_list=[]
+        for _,value in dataset_list_dict.items():
+            dataset_list+=value
+        DataUtils.save_dataset_list(dataset_list=dataset_list,file_name=file_name,chunk_size=chunk_size,dir_type=dir_type)
+
+    @staticmethod
+    def save_dataset_list_dict_each(dataset_list_dict:dict,file_name:str,chunk_size:int,dir_type:Literal['train','val','test']):
         for key,value in tqdm(dataset_list_dict.items(),desc=f"Save {file_name} ..."):
-            DataUtils.save_dataset_list(dataset_list=value,file_name=file_name,graph_type=key,chunk_size=chunk_size,dir_type=dir_type)
+            DataUtils.save_dataset_list_each(dataset_list=value,file_name=file_name,graph_type=key,chunk_size=chunk_size,dir_type=dir_type)
 
     @staticmethod
     def save_model_parameter(model,model_name:str):

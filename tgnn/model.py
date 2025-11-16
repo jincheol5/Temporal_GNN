@@ -15,8 +15,8 @@ class TGAT(nn.Module):
     def forward(self,data_loader,device):
         """
         Input:
-            data_loader: List of batch_event_dict
-                batch_event_dict
+            data_loader: List of batch_data
+                batch_data
                     x: [B,N,1]
                     t: [B,N,1]
                     tar: [B,1]
@@ -118,8 +118,8 @@ class TGN(nn.Module):
     def forward(self,data_loader,device):
         """
         Input:
-            data_loader: List of batch_event_dict
-                batch_event_dict
+            data_loader: List of batch_data
+                batch_data
                     x: [B,N,1]
                     t: [B,N,1]
                     src: [B,1]
