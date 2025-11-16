@@ -135,7 +135,7 @@ class GraphUtils:
         edge_index=GraphUtils.get_edge_index(graph=graph)
         event_stream=GraphUtils.get_event_stream(graph=graph)
         dataset=[
-            GraphUtils.convert_to_dataset(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id,edge_index=edge_index) 
+            GraphUtils.convert_to_data_seq(event_stream=event_stream,num_nodes=num_nodes,source_id=source_id,edge_index=edge_index) 
             for source_id in range(num_nodes)]
         return dataset
 
