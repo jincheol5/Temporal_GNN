@@ -21,15 +21,15 @@ class TemporalGraph:
         self.adj_t=defaultdict(list)
         for event in df.itertuples(index=False):
             src=int(event.src)
-            tar=int(event.tar)
+            dst=int(event.dst)
             t=int(event.t)
             edge_id=int(event.edge_id)
-            self.adj[tar].append((src,edge_id))
-            self.adj_t[tar].append(t)
+            self.adj[dst].append((src,edge_id))
+            self.adj_t[dst].append(t)
 
         # set node_ft
         self.node_dim=node_dim
-        self.num_node=max(df["src"].max(),df["tar"].max())
+        self.num_node=max(df["src"].max(),df["dst"].max())
         self.node_ft=torch.zeros(
             (self.num_node+1,node_dim),
             dtype=torch.float32
@@ -49,19 +49,22 @@ class TemporalGraph:
         self.adj_t=defaultdict(list)
         for event in df.itertuples(index=False):
             src=int(event.src)
-            tar=int(event.tar)
+            dst=int(event.dst)
             t=int(event.t)
             edge_id=int(event.edge_id)
-            self.adj[tar].append((src,edge_id))
-            self.adj_t[tar].append(t)
+            self.adj[dst].append((src,edge_id))
+            self.adj_t[dst].append(t)
 
         # set node_ft
         self.node_dim=node_dim
-        self.num_node=max(df["src"].max(),df["tar"].max())
+        self.num_node=max(df["src"].max(),df["dst"].max())
         self.node_ft=torch.zeros(
             (self.num_node+1,node_dim),
             dtype=torch.float32
         )
+
+    def get_num_node(self):
+        return self.num_node
 
     def get_node_ft(self,node:torch.Tensor=None):
         """
@@ -70,10 +73,11 @@ class TemporalGraph:
         Return:
             node_ft
         """
+        device=node.device
         if node==None:
-            return self.node_ft
+            return self.node_ft.to(device=device)
         else:
-            return self.node_ft[node]
+            return self.node_ft.to(device=device)[node]
     
     def get_temporal_neighbor(self,
             tar:torch.Tensor,
