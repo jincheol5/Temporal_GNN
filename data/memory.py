@@ -59,7 +59,9 @@ class Memory:
             node_ts: [N,1]
         """
         device=node.device
+        node=node.cpu()
+        event_t=event_t.cpu()
         node_ts=torch.abs(
-            self.interact_t[node.cpu()]-event_t
+            event_t-self.interact_t[node]
         )
         return node_ts.unsqueeze(-1).to(device=device) # [N,1]

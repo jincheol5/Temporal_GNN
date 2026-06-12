@@ -114,6 +114,8 @@ class MemoryUpdater(nn.Module):
             aggr_msg: [unique_N,msg_dim]
             aggr_interact_t: [unique_N,]
         """
+        device=src.device
+
         nodes=torch.concat([src,dst],dim=0) # [2B,]
         msgs=torch.concat([src_msg,dst_msg],dim=0) # [2B,msg_dim]
         times=torch.concat([event_t,event_t],dim=0) # [2B,]
@@ -154,7 +156,7 @@ class MemoryUpdater(nn.Module):
                     )
                     # interaction time은 가장 최근 시각 사용
                     aggr_interact_t.append(last_t)
-        aggr_node=torch.tensor(aggr_node) # [unique_N,]
+        aggr_node=torch.tensor(aggr_node,device=device) # [unique_N,]
         aggr_msg=torch.stack(aggr_msg,dim=0) # [unique_N,msg_dim]
         aggr_interact_t=torch.stack(aggr_interact_t,dim=0) # [unique_N,]
         return aggr_node,aggr_msg,aggr_interact_t
