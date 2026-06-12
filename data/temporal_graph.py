@@ -29,9 +29,9 @@ class TemporalGraph:
 
         # set node_ft
         self.node_dim=node_dim
-        self.num_node=max(df["src"].max(),df["dst"].max())
+        self.n_node=max(df["src"].max(),df["dst"].max())
         self.node_ft=torch.zeros(
-            (self.num_node+1,node_dim),
+            (self.n_node+1,node_dim),
             dtype=torch.float32
         )
 
@@ -57,14 +57,14 @@ class TemporalGraph:
 
         # set node_ft
         self.node_dim=node_dim
-        self.num_node=max(df["src"].max(),df["dst"].max())
+        self.n_node=max(df["src"].max(),df["dst"].max())
         self.node_ft=torch.zeros(
-            (self.num_node+1,node_dim),
+            (self.n_node+1,node_dim),
             dtype=torch.float32
         )
 
     def get_num_node(self):
-        return self.num_node
+        return self.n_node
 
     def get_node_ft(self,node:torch.Tensor=None):
         """
@@ -74,11 +74,8 @@ class TemporalGraph:
             node_ft
         """
         device=node.device
-        if node==None:
-            return self.node_ft.to(device=device)
-        else:
-            return self.node_ft.to(device=device)[node]
-    
+        return self.node_ft.to(device=device)[node]
+
     def get_temporal_neighbor(self,
             tar:torch.Tensor,
             tar_t:torch.Tensor,
