@@ -13,11 +13,11 @@ def test_fn(**kwargs):
             """
             Test. module.mem_module.GRUMemoryUpdater
             """
-            num_node=5
+            n_node=5
             mem_dim=4
             msg_dim=4
             time_dim=4
-            memory=Memory(num_node=num_node,mem_dim=mem_dim)
+            memory=Memory(n_node=n_node,mem_dim=mem_dim)
             time_encoder=TimeEncoder(time_dim=time_dim)
             memory_updater=GRUMemoryUpdater(
                 mem_dim=mem_dim,

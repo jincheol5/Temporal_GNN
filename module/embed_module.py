@@ -43,6 +43,7 @@ class IdentityEmbedding(EmbeddingModule):
 
 class TimeProjectionEmbedding(EmbeddingModule):
     """
+    JODIE-style time projection embedding
     emb(i,t)=(1+delta_t*w) x s^t_i
     """
     def __init__(self,
@@ -75,6 +76,7 @@ class TimeProjectionEmbedding(EmbeddingModule):
             node=tar,
             event_t=tar_t
         ) # [B,1]
+        print(tar_ts)
         tar_ft=tar_mem*(1+self.embedding_layer(tar_ts)) # [B,mem_dim]
         return tar_ft
 
@@ -150,6 +152,13 @@ class GraphEmbeddingModule(EmbeddingModule):
             neighbor_id: [n_tar,n_neighbor]
             neighbor_t: [n_tar,n_neighbor]
             """
+            tar_ft=self.compute_embedding(
+                tar=tar,
+                tar_t=tar_t,
+                n_layer=n_layer-1,
+                n_neighbor=n_neighbor
+            ) # [n_tar,tar_dim] if n_layer=1 else # [n_tar,output_dim]
+
             neighbor_id,neighbor_t,neighbor_ts,_=self.graph.get_temporal_neighbor(
                 tar=tar,
                 tar_t=tar_t,
@@ -165,7 +174,7 @@ class GraphEmbeddingModule(EmbeddingModule):
             neighbor_mask=neighbor_id!=0 # [n_tar x n_neighbor,], bool
             
             # apply time encoding
-            tar_ts=torch.zeros_like(tar,device=tar.device).unsqueeze(-1) # [n_tar,1]
+            tar_ts=torch.zeros_like(tar,dtype=torch.float32,device=tar.device).unsqueeze(-1) # [n_tar,1]
             tar_ts_ft=self.time_encoder(tar_ts) # [n_tar,time_dim]
             neighbor_ts=neighbor_ts.unsqueeze(-1) # [n_tar,n_neighbor,1]
             neighbor_ts_ft=self.time_encoder(neighbor_ts) # [n_tar,n_neighbor,time_dim]
@@ -176,10 +185,10 @@ class GraphEmbeddingModule(EmbeddingModule):
                 tar_t=neighbor_t,
                 n_layer=n_layer-1,
                 n_neighbor=n_neighbor
-            ) # [n_tar x n_neighbor,output_dim]
+            ) # [n_tar x n_neighbor,tar_dim] if n_layer=1 else [n_tar x n_neighbor,output_dim] 
 
             # reshape
-            neighbor_ft=neighbor_ft.reshape(n_tar,n_neighbor,-1) # -> [n_tar,n_neighbor,output_dim]
+            neighbor_ft=neighbor_ft.reshape(n_tar,n_neighbor,-1) # -> [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
             neighbor_mask=neighbor_mask.reshape(n_tar,n_neighbor,) # -> [n_tar,n_neighbor]
 
             ### Aggregation
@@ -193,5 +202,161 @@ class GraphEmbeddingModule(EmbeddingModule):
             )
             return updated_tar_ft
 
+class GraphSumEmbedding(GraphEmbeddingModule):
+    def __init__(self,
+            node_dim:int=32,
+            mem_dim:int=32,
+            latent_dim:int=32, 
+            output_dim:int=32,
+            time_dim:int=32,
+            graph:TemporalGraph=None,
+            memory:Memory=None,
+            n_layer:int=1,
+            use_memory:bool=True,
+            time_encoder:TimeEncoder=None
+        ):
+        super(GraphSumEmbedding,self).__init__(
+            node_dim=node_dim,
+            mem_dim=mem_dim,
+            latent_dim=latent_dim,
+            output_dim=output_dim,
+            time_dim=time_dim,
+            graph=graph,
+            memory=memory,
+            n_layer=n_layer,
+            use_memory=use_memory,
+            time_encoder=time_encoder
+        )
+        # module
+        input_dim=node_dim+mem_dim if self.use_memory else node_dim
+        self.linear_1=torch.nn.ModuleList([
+            nn.Linear(
+                in_features=(input_dim if idx==0 else output_dim)+time_dim,
+                out_features=output_dim
+            )
+            for idx in range(n_layer)
+        ])
+        self.linear_2=torch.nn.ModuleList([
+            nn.Linear(
+                in_features=(input_dim if idx==0 else output_dim)+time_dim+output_dim,
+                out_features=output_dim
+            )
+            for idx in range(n_layer)
+        ])
+        self.relu=nn.ReLU()
 
+    def aggregate(self,
+            tar_ft,
+            tar_ts_ft,
+            neighbor_ft, 
+            neighbor_ts_ft, 
+            neighbor_mask, 
+            n_layer
+        ):
+        """
+        Input:
+            tar_ft: [n_tar,tar_dim] or [n_tar,output_dim]
+            tar_ts_ft: [n_tar,time_dim]
+            neighbor_ft: [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
+            neighbor_ts_ft: [n_tar,n_neighbor,time_dim]
+            neighbor_mask: [n_tar,n_neighbor]
+            n_layer: int
+        """
+        # neighbor feature 구성
+        neighbor_ft=torch.concat(
+            [neighbor_ft,neighbor_ts_ft],
+            dim=-1
+        )
 
+        # 각 neighbor message 변환: W_1(...)
+        neighbor_msg=self.linear_1[n_layer-1](neighbor_ft) # [n_tar,n_neighbor,output_dim]
+
+        # padding neighbor 제거, neighbor_mask가 valid=True라면 그대로 사용
+        neighbor_msg=neighbor_msg.masked_fill(
+            ~neighbor_mask.unsqueeze(-1),
+            0.0
+        )
+
+        # sum aggregation
+        neighbor_sum=torch.sum(neighbor_msg,dim=1)
+        neighbor_sum=self.relu(neighbor_sum)
+
+        # target node feature 구성
+        tar_ft=torch.concat(
+            [tar_ft,tar_ts_ft],
+            dim=-1
+        )  # [n_tar,tar_dim+time_dim] or [n_tar,output_dim+time_dim]
+
+        # self feature와 neighbor aggregate 결합
+        output=torch.concat(
+            [tar_ft,neighbor_sum],
+            dim=-1
+        )  # [n_tar,tar_dim+time_dim+output_dim] or [n_tar,output_dim+time_dim+output_dim]
+
+        # W_2(...)
+        output=self.linear_2[n_layer-1](output) # [n_tar,output_dim]
+        return output # [B,output_dim]
+
+class GraphAttnEmbedding(GraphEmbeddingModule):
+    def __init__(self,
+            node_dim:int=32,
+            mem_dim:int=32,
+            latent_dim:int=32, 
+            output_dim:int=32,
+            time_dim:int=32,
+            graph:TemporalGraph=None,
+            memory:Memory=None,
+            n_layer:int=1,
+            n_head:int=1,
+            use_memory:bool=True,
+            time_encoder:TimeEncoder=None
+        ):
+        super(GraphAttnEmbedding,self).__init__(
+            node_dim=node_dim,
+            mem_dim=mem_dim,
+            latent_dim=latent_dim,
+            output_dim=output_dim,
+            time_dim=time_dim,
+            graph=graph,
+            memory=memory,
+            n_layer=n_layer,
+            use_memory=use_memory,
+            time_encoder=time_encoder
+        )
+        # module
+        layer_0_input_dim=node_dim+mem_dim if self.use_memory else node_dim
+        self.attn_layers=torch.nn.ModuleList([
+                TemporalGraphAttn(
+                    input_dim=layer_0_input_dim if idx==0 else output_dim,
+                    latent_dim=latent_dim,
+                    output_dim=output_dim,
+                    time_dim=time_dim,
+                    n_head=n_head
+                )
+            for idx in range(n_layer)])
+    def aggregate(self,
+            tar_ft,
+            tar_ts_ft, 
+            neighbor_ft, 
+            neighbor_ts_ft, 
+            neighbor_mask, 
+            n_layer
+        ):
+        """
+        Input:
+            tar_ft: [n_tar,tar_dim] or [n_tar,output_dim]
+            tar_ts_ft: [n_tar,time_dim]
+            neighbor_ft: [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
+            neighbor_ts_ft: [n_tar,n_neighbor,time_dim]
+            neighbor_mask: [n_tar,n_neighbor]
+            n_layer: int
+        """
+        aggr_module=self.attn_layers[n_layer-1]
+        output=aggr_module(
+            tar_ft=tar_ft,
+            tar_ts_ft=tar_ts_ft,
+            neighbor_ft=neighbor_ft,
+            neighbor_ts_ft=neighbor_ts_ft,
+            neighbor_mask=neighbor_mask
+        ) # [n_tar,output_dim]
+        return output 

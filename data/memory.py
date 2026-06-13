@@ -4,17 +4,17 @@ class Memory:
     """
     """
     def __init__(self,
-            num_node:int,
+            n_node:int,
             mem_dim:int,
         ):
-        self.num_node=num_node
+        self.n_node=n_node
         self.mem_dim=mem_dim
         self.mem_ft=torch.zeros(
-            (self.num_node+1,mem_dim),
+            (self.n_node+1,mem_dim),
             dtype=torch.float32,
         )
         self.interact_t=torch.zeros(
-            (self.num_node+1,),
+            (self.n_node+1,),
             dtype=torch.float32,
         )
     
