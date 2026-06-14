@@ -91,6 +91,7 @@ class GraphEmbeddingModule(EmbeddingModule):
             graph:TemporalGraph=None,
             memory:Memory=None,
             n_layer:int=1,
+            n_neighbor:int=5,
             use_memory:bool=True,
             time_encoder:TimeEncoder=None
         ):
@@ -102,6 +103,7 @@ class GraphEmbeddingModule(EmbeddingModule):
         self.time_dim=time_dim
         self.graph=graph
         self.n_layer=n_layer
+        self.n_neighbor=n_neighbor
         self.use_memory=use_memory
         if use_memory:
             self.mem_dim=mem_dim
@@ -123,8 +125,7 @@ class GraphEmbeddingModule(EmbeddingModule):
     def compute_embedding(self,
             tar:torch.Tensor,
             tar_t:torch.Tensor,
-            n_layer:int=1,
-            n_neighbor:int=10
+            n_layer:int=1
         ):
         """
         embedding 할 노드들
@@ -155,14 +156,13 @@ class GraphEmbeddingModule(EmbeddingModule):
             tar_ft=self.compute_embedding(
                 tar=tar,
                 tar_t=tar_t,
-                n_layer=n_layer-1,
-                n_neighbor=n_neighbor
+                n_layer=n_layer-1
             ) # [n_tar,tar_dim] if n_layer=1 else # [n_tar,output_dim]
 
             neighbor_id,neighbor_t,neighbor_ts,_=self.graph.get_temporal_neighbor(
                 tar=tar,
                 tar_t=tar_t,
-                n_neighbor=n_neighbor
+                n_neighbor=self.n_neighbor
             )
 
             # flatten for neighbor embedding
@@ -183,8 +183,7 @@ class GraphEmbeddingModule(EmbeddingModule):
             neighbor_ft=self.compute_embedding(
                 tar=neighbor_id,
                 tar_t=neighbor_t,
-                n_layer=n_layer-1,
-                n_neighbor=n_neighbor
+                n_layer=n_layer-1
             ) # [n_tar x n_neighbor,tar_dim] if n_layer=1 else [n_tar x n_neighbor,output_dim] 
 
             # reshape
@@ -212,6 +211,7 @@ class GraphSumEmbedding(GraphEmbeddingModule):
             graph:TemporalGraph=None,
             memory:Memory=None,
             n_layer:int=1,
+            n_neighbor:int=5,
             use_memory:bool=True,
             time_encoder:TimeEncoder=None
         ):
@@ -224,6 +224,7 @@ class GraphSumEmbedding(GraphEmbeddingModule):
             graph=graph,
             memory=memory,
             n_layer=n_layer,
+            n_neighbor=n_neighbor,
             use_memory=use_memory,
             time_encoder=time_encoder
         )
@@ -307,6 +308,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
             graph:TemporalGraph=None,
             memory:Memory=None,
             n_layer:int=1,
+            n_neighbor:int=5,
             n_head:int=1,
             use_memory:bool=True,
             time_encoder:TimeEncoder=None
@@ -320,6 +322,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
             graph=graph,
             memory=memory,
             n_layer=n_layer,
+            n_neighbor=n_neighbor,
             use_memory=use_memory,
             time_encoder=time_encoder
         )
