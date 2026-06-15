@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from utils import Sampling
+from utils import Sampling,TrainUtils,Metric
 
 class ModelTrainer:
     @staticmethod
@@ -40,7 +40,6 @@ class ModelTrainer:
                 ):
                 batch_count+=1
 
-                batch_size=src.size(0)
                 src=src.to(device) # [B,]
                 dst=dst.to(device) # [B,]
                 event_t=event_t.to(device) # [B,]
@@ -49,28 +48,29 @@ class ModelTrainer:
                     dst=dst,
                     n_node=n_node
                 ) # [B,]
-                src=torch.concat([src,src],dim=0) # [2B,]
-                dst=torch.concat([dst,neg_dst],dim=0) # [2B,]
-                event_t=torch.concat([event_t,event_t],dim=0) # [2B,]
+
+                pos_event={
+                    "src":src,
+                    "dst":dst,
+                    "event_t":event_t
+                }
+                neg_event={
+                    "src":src,
+                    "dst":neg_dst,
+                    "event_t":event_t
+                }
 
                 ### label
-                pos_label=torch.ones(
-                    (batch_size,1),
-                    device=device,
-                    dtype=torch.float32,
-                ) # [B,1]
-                neg_label=torch.zeros(
-                    (batch_size,1),
-                    device=device,
-                    dtype=torch.float32,
-                ) # [B,1]
-                edge_label=torch.cat([pos_label,neg_label],dim=0) # [2B,1]
+                edge_label=TrainUtils.get_edge_label(
+                    pos_edge_size=src.size(0),
+                    neg_edge_size=neg_dst.size(0),
+                    device=device
+                ) # [2B,1]
 
                 ### predict
                 pred_edge_logit=model(
-                    src=src,
-                    dst=dst,
-                    event_t=event_t
+                    pos_event=pos_event,
+                    neg_event=neg_event
                 ) # [2B,1]
 
                 ### Loss
@@ -82,3 +82,72 @@ class ModelTrainer:
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+
+            """
+            validate model
+            """
+            ModelTrainer.evaluate_link_prediction(model=model,data_loader=val_loader)
+        return model
+
+    @staticmethod
+    def evaluate_link_prediction(
+            model:nn.Module,
+            data_loader:DataLoader,
+            **kwargs
+        ):
+        """
+        """
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model=model.to(device)
+        model.eval()
+
+        """
+        model evaluate
+        """
+        n_node=model.graph.get_num_node()
+        acc_list=[]
+        with torch.no_grad():
+            for src,dst,event_t in tqdm(
+                    data_loader,
+                    desc=f"Evaluating..."
+                ):
+                src=src.to(device) # [B,]
+                dst=dst.to(device) # [B,]
+                event_t=event_t.to(device) # [B,]
+                neg_dst=Sampling.random_negative_sampling(
+                    src=src,
+                    dst=dst,
+                    n_node=n_node
+                ) # [B,]
+
+                pos_event={
+                    "src":src,
+                    "dst":dst,
+                    "event_t":event_t
+                }
+                neg_event={
+                    "src":src,
+                    "dst":neg_dst,
+                    "event_t":event_t
+                }
+
+                ### label
+                edge_label=TrainUtils.get_edge_label(
+                    pos_edge_size=src.size(0),
+                    neg_edge_size=neg_dst.size(0),
+                    device=device
+                ) # [2B,1]
+
+                ### predict
+                pred_edge_logit=model(
+                    pos_event=pos_event,
+                    neg_event=neg_event
+                ) # [2B,1]
+
+                ### compute ACC
+                batch_acc=Metric.compute_accuracy(
+                    pred_logit=pred_edge_logit,
+                    label=edge_label
+                )
+                acc_list.append(batch_acc)
+        print(f"ACC: {sum(acc_list)/len(acc_list)}")

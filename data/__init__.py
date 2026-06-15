@@ -1,2 +1,2 @@
-from .temporal_graph import TemporalGraph
-from .memory import Memory
+from .temporal_graph import *
+from .memory import *

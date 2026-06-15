@@ -1,69 +1,119 @@
 import torch
 import torch.nn as nn
-from data import TemporalGraph
-from module import TimeEncoder,GraphAttnEmbedding
+from typing_extensions import Literal
+from data import TemporalGraph,Memory
+from module import TimeEncoder,GraphAttnEmbedding,MemoryUpdater
 
-class TGAT_Base(nn.Module):
+class TGN_Base(nn.Module):
     def __init__(self,
             node_dim:int,
+            mem_dim:int,
             latent_dim:int,
+            msg_dim:int,
             time_dim:int,
             output_dim:int,
             graph:TemporalGraph,
+            memory:Memory,
             n_layer:int,
             n_neighbor:int,
-            n_head:int
+            n_head:int,
+            msg_fn:Literal["concat","mlp"]="concat",
+            aggr_fn:Literal["last","mean"]="last"
         ):
         super().__init__()
         self.node_dim=node_dim
+        self.mem_dim=mem_dim
         self.latent_dim=latent_dim
+        self.msg_dim=msg_dim
         self.time_dim=time_dim
         self.output_dim=output_dim
         self.graph=graph
+        self.memory=memory
         self.n_layer=n_layer
         self.n_neighbor=n_neighbor
         self.n_head=n_head
+        self.msg_fn=msg_fn
+        self.aggr_fn=aggr_fn
 
         # time encoder
         self.time_encoder=TimeEncoder(time_dim=time_dim)
 
+        # memory updater
+        self.memory_updater=MemoryUpdater(
+            mem_dim=mem_dim,
+            msg_dim=msg_dim,
+            time_dim=time_dim,
+            time_encoder=self.time_encoder,
+            memory=self.memory,
+            msg_fn=msg_fn,
+            aggr_fn=aggr_fn
+        )
+
         # encoder
         self.encoder=GraphAttnEmbedding(
             node_dim=node_dim,
+            mem_dim=mem_dim,
             latent_dim=latent_dim,
             time_dim=time_dim,
             output_dim=output_dim,
             graph=self.graph,
+            memory=self.memory,
             n_layer=n_layer,
             n_neighbor=n_neighbor,
             n_head=n_head,
-            use_memory=False,
+            use_memory=True,
             time_encoder=self.time_encoder
         )
 
+        # pre batch data
+        self.pre_batch=False
+        self.pre_src=None
+        self.pre_dst=None
+        self.pre_event_t=None
+    
+    def set_pre_batch(self,
+            pre_src:torch.Tensor,
+            pre_dst:torch.Tensor,
+            pre_event_t:torch.Tensor
+        ):
+        self.pre_batch=True
+        self.pre_src=pre_src.detach()
+        self.pre_dst=pre_dst.detach()
+        self.pre_event_t=pre_event_t.detach()
+
     def forward(self):
         return NotImplemented
-    
-class TGAT_Link_Prediction(TGAT_Base):
+
+class TGN_Link_Prediction(TGN_Base):
     def __init__(self,
             node_dim:int,
+            mem_dim:int,
             latent_dim:int,
+            msg_dim:int,
             time_dim:int,
             output_dim:int,
             graph:TemporalGraph,
+            memory:Memory,
             n_layer:int,
             n_neighbor:int,
-            n_head:int
+            n_head:int,
+            msg_fn:Literal["concat","mlp"]="concat",
+            aggr_fn:Literal["last","mean"]="last"
         ):
-        super(TGAT_Link_Prediction,self).__init__(
+        super(TGN_Link_Prediction,self).__init__(
             node_dim=node_dim,
+            mem_dim=mem_dim,
             latent_dim=latent_dim,
+            msg_dim=msg_dim,
             time_dim=time_dim,
             output_dim=output_dim,
             graph=graph,
+            memory=memory,
             n_layer=n_layer,
             n_neighbor=n_neighbor,
-            n_head=n_head
+            n_head=n_head,
+            msg_fn=msg_fn,
+            aggr_fn=aggr_fn
         )
         # decoder
         self.decoder=nn.Sequential(
@@ -77,7 +127,7 @@ class TGAT_Link_Prediction(TGAT_Base):
                 out_features=1
             )
         )
-    
+
     def forward(self,
             pos_event:dict,
             neg_event:dict
@@ -109,7 +159,22 @@ class TGAT_Link_Prediction(TGAT_Base):
         dst=torch.concat([pos_dst,neg_dst],dim=0) # [2B,]
         event_t=torch.concat([pos_event_t,neg_event_t],dim=0) # [2B,]
 
-        ### 1. current batch에 대한 embedding
+        ### 1. pre batch에 대한 memory update
+        if self.pre_batch:
+            self.memory_updater.update_memory(
+                src=self.pre_src,
+                dst=self.pre_dst,
+                event_t=self.pre_event_t
+            )
+
+        ### 2. pre batch에 current batch setting
+        self.set_pre_batch(
+            pre_src=pos_src,
+            pre_dst=pos_dst,
+            pre_event_t=pos_event_t
+        )
+
+        ### 3. current batch에 대한 embedding
         batch_size=src.size(0) # 2B
 
         # concat

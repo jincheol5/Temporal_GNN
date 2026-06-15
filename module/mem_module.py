@@ -15,7 +15,6 @@ class MemoryUpdater(nn.Module):
             aggr_fn:Literal["last","mean"]="last"
         ):
         super().__init__()
-        self.memory=memory
         self.mem_dim=mem_dim
         self.msg_dim=msg_dim
         self.time_dim=time_dim
@@ -23,6 +22,7 @@ class MemoryUpdater(nn.Module):
         self.aggr_fn=aggr_fn
 
         # module
+        self.memory=memory
         self.time_encoder=time_encoder
         if msg_fn=="mlp":
             self.src_mlp=nn.Sequential(
@@ -112,7 +112,7 @@ class MemoryUpdater(nn.Module):
         Output:
             aggr_node: [unique_N,]
             aggr_msg: [unique_N,msg_dim]
-            aggr_interact_t: [unique_N,]
+            aggr_event_t: [unique_N,]
         """
         device=src.device
 
@@ -135,14 +135,14 @@ class MemoryUpdater(nn.Module):
 
         aggr_node=[]
         aggr_msg=[]
-        aggr_interact_t=[]
+        aggr_event_t=[]
         match self.aggr_fn:
             case "last":
                 for node in msg_dict.keys():
                     last_msg,last_t=msg_dict[node][-1]
                     aggr_node.append(node)
                     aggr_msg.append(last_msg)
-                    aggr_interact_t.append(last_t)
+                    aggr_event_t.append(last_t)
             case "mean":
                 for node in msg_dict.keys():
                     msg_list=[msg for msg,_ in msg_dict[node]]
@@ -155,13 +155,13 @@ class MemoryUpdater(nn.Module):
                         )
                     )
                     # interaction time은 가장 최근 시각 사용
-                    aggr_interact_t.append(last_t)
+                    aggr_event_t.append(last_t)
         aggr_node=torch.tensor(aggr_node,device=device) # [unique_N,]
         aggr_msg=torch.stack(aggr_msg,dim=0) # [unique_N,msg_dim]
-        aggr_interact_t=torch.stack(aggr_interact_t,dim=0) # [unique_N,]
-        return aggr_node,aggr_msg,aggr_interact_t
+        aggr_event_t=torch.stack(aggr_event_t,dim=0) # [unique_N,]
+        return aggr_node,aggr_msg,aggr_event_t
     
-    def update_memory_implement(self,aggr_node,aggr_msg,aggr_interact_t):
+    def update_memory_implement(self,aggr_node,aggr_msg,aggr_event_t):
         return NotImplemented
 
     def update_memory(self,
@@ -182,7 +182,7 @@ class MemoryUpdater(nn.Module):
             dst=dst,
             event_t=event_t
         )
-        aggr_node,aggr_msg,aggr_interact_t=self.aggregate_message(
+        aggr_node,aggr_msg,aggr_event_t=self.aggregate_message(
             src=src,
             dst=dst,
             src_msg=src_msg,
@@ -192,7 +192,7 @@ class MemoryUpdater(nn.Module):
         updated_mem_ft=self.update_memory_implement(
             aggr_node=aggr_node,
             aggr_msg=aggr_msg,
-            aggr_interact_t=aggr_interact_t
+            aggr_event_t=aggr_event_t
         )
         return updated_mem_ft # [unique_N,mem_dim]
 
@@ -224,18 +224,18 @@ class GRUMemoryUpdater(MemoryUpdater):
             hidden_size=mem_dim
         )
 
-    def update_memory_implement(self,aggr_node,aggr_msg,aggr_interact_t):
+    def update_memory_implement(self,aggr_node,aggr_msg,aggr_event_t):
         """
         Input:
             aggr_node: [unique_N,]
             aggr_msg: [unique_N,msg_dim]
-            aggr_interact_t: [unique_N,]
+            aggr_event_t: [unique_N,]
         """
         pre_mem_ft=self.memory.get_memory(node=aggr_node) # [unique_N,mem_dim]
         updated_mem_ft=self.memory_updater(aggr_msg,pre_mem_ft) # [unique_N,mem_dim]
         self.memory.update_memory(
             node=aggr_node,
             mem_ft=updated_mem_ft,
-            interact_t=aggr_interact_t
+            event_t=aggr_event_t
         )
         return updated_mem_ft # [unique_N,mem_dim]
