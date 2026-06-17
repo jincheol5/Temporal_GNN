@@ -166,12 +166,10 @@ class TGN_Link_Prediction(TGN_Base):
         pos_event_t=pos_event["event_t"]
         neg_src=neg_event["src"]
         neg_dst=neg_event["dst"]
-        neg_edge=neg_event["edge"]
         neg_event_t=neg_event["event_t"]
 
         src=torch.concat([pos_src,neg_src],dim=0) # [2B,]
         dst=torch.concat([pos_dst,neg_dst],dim=0) # [2B,]
-        edge=torch.concat([pos_edge,neg_edge],dim=0) # [2B,]
         event_t=torch.concat([pos_event_t,neg_event_t],dim=0) # [2B,]
 
         ### 1. pre batch에 대한 memory update
@@ -187,7 +185,7 @@ class TGN_Link_Prediction(TGN_Base):
         self.set_pre_batch(
             pre_src=pos_src,
             pre_dst=pos_dst,
-            pre_edge=edge,
+            pre_edge=pos_edge,
             pre_event_t=pos_event_t
         )
 

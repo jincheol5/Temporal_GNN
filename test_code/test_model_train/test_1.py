@@ -18,13 +18,13 @@ def test_fn(**kwargs):
                 task: link prediction
             """
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
-            graph=TemporalGraph(df=df,node_dim=4)
+            graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
 
             train_df,val_df,_=TrainUtils.split_graph_df(df=df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
-            train_loader=DataLoader(dataset=train_dataset,batch_size=100,shuffle=False)
-            val_loader=DataLoader(dataset=val_dataset,batch_size=100,shuffle=False)
+            train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
+            val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
             
             model=TGAT_Link_Prediction(
                 node_dim=4,
@@ -57,15 +57,15 @@ def test_fn(**kwargs):
                 task: link prediction
             """
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
-            graph=TemporalGraph(df=df,node_dim=4)
+            graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
             n_node=graph.get_num_node()
             memory=Memory(n_node=n_node,mem_dim=4)
 
             train_df,val_df,_=TrainUtils.split_graph_df(df=df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
-            train_loader=DataLoader(dataset=train_dataset,batch_size=100,shuffle=False)
-            val_loader=DataLoader(dataset=val_dataset,batch_size=100,shuffle=False)
+            train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
+            val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
 
             model=TGN_Link_Prediction(
                 node_dim=4,
