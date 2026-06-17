@@ -28,6 +28,7 @@ def test_fn(**kwargs):
             
             model=TGAT_Link_Prediction(
                 node_dim=4,
+                edge_dim=4,
                 latent_dim=4,
                 time_dim=4,
                 output_dim=4,
@@ -68,6 +69,7 @@ def test_fn(**kwargs):
 
             model=TGN_Link_Prediction(
                 node_dim=4,
+                edge_dim=4,
                 mem_dim=4,
                 latent_dim=4,
                 msg_dim=4,

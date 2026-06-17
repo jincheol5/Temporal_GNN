@@ -8,11 +8,13 @@ from .aggr_module import TemporalGraphAttn
 class EmbeddingModule(nn.Module):
     def __init__(self,
             node_dim:int=32,
+            edge_dim:int=32,
             latent_dim:int=32,
             output_dim:int=32
         ):
         super().__init__()
         self.node_dim=node_dim
+        self.edge_dim=edge_dim
         self.latent_dim=latent_dim
         self.output_dim=output_dim
 
@@ -25,6 +27,7 @@ class IdentityEmbedding(EmbeddingModule):
     """
     def __init__(self,
             node_dim:int=32,
+            edge_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32,
             output_dim:int=32,
@@ -32,6 +35,7 @@ class IdentityEmbedding(EmbeddingModule):
         ):
         super(IdentityEmbedding,self).__init__(
             node_dim=node_dim,
+            edge_dim=edge_dim,
             latent_dim=latent_dim,
             output_dim=output_dim
         )
@@ -48,6 +52,7 @@ class TimeProjectionEmbedding(EmbeddingModule):
     """
     def __init__(self,
             node_dim:int=32,
+            edge_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32,
             output_dim:int=32,
@@ -55,6 +60,7 @@ class TimeProjectionEmbedding(EmbeddingModule):
         ):
         super(TimeProjectionEmbedding,self).__init__(
             node_dim=node_dim,
+            edge_dim=edge_dim,
             latent_dim=latent_dim,
             output_dim=output_dim
         )
@@ -76,7 +82,6 @@ class TimeProjectionEmbedding(EmbeddingModule):
             node=tar,
             event_t=tar_t
         ) # [B,1]
-        print(tar_ts)
         tar_ft=tar_mem*(1+self.embedding_layer(tar_ts)) # [B,mem_dim]
         return tar_ft
 
@@ -84,6 +89,7 @@ class TimeProjectionEmbedding(EmbeddingModule):
 class GraphEmbeddingModule(EmbeddingModule):
     def __init__(self,
             node_dim:int=32,
+            edge_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32, 
             output_dim:int=32,
@@ -96,9 +102,10 @@ class GraphEmbeddingModule(EmbeddingModule):
             time_encoder:TimeEncoder=None
         ):
         super(GraphEmbeddingModule,self).__init__(
-            node_dim,
-            latent_dim,
-            output_dim
+            node_dim=node_dim,
+            edge_dim=edge_dim,
+            latent_dim=latent_dim,
+            output_dim=output_dim
         )
         self.time_dim=time_dim
         self.graph=graph
@@ -117,6 +124,7 @@ class GraphEmbeddingModule(EmbeddingModule):
             tar_ts_ft:torch.Tensor,
             neighbor_ft:torch.Tensor,
             neighbor_ts_ft:torch.Tensor,
+            neighbor_edge_ft:torch.Tensor,
             neighbor_mask:torch.Tensor,
             n_layer:int
         ):
@@ -159,7 +167,7 @@ class GraphEmbeddingModule(EmbeddingModule):
                 n_layer=n_layer-1
             ) # [n_tar,tar_dim] if n_layer=1 else # [n_tar,output_dim]
 
-            neighbor_id,neighbor_t,neighbor_ts,_=self.graph.get_temporal_neighbor(
+            neighbor_id,neighbor_t,neighbor_ts,neighbor_edge=self.graph.get_temporal_neighbor(
                 tar=tar,
                 tar_t=tar_t,
                 n_neighbor=self.n_neighbor
@@ -190,12 +198,16 @@ class GraphEmbeddingModule(EmbeddingModule):
             neighbor_ft=neighbor_ft.reshape(n_tar,n_neighbor,-1) # -> [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
             neighbor_mask=neighbor_mask.reshape(n_tar,n_neighbor,) # -> [n_tar,n_neighbor]
 
+            # get edge feature
+            neighbor_edge_ft=self.graph.get_edge_ft(edge=neighbor_edge) # [n_tar,n_neighbor,edge_dim]
+
             ### Aggregation
             updated_tar_ft=self.aggregate(
                 tar_ft=tar_ft,
                 tar_ts_ft=tar_ts_ft,
                 neighbor_ft=neighbor_ft,
                 neighbor_ts_ft=neighbor_ts_ft,
+                neighbor_edge_ft=neighbor_edge_ft,
                 neighbor_mask=neighbor_mask,
                 n_layer=n_layer
             )
@@ -204,6 +216,7 @@ class GraphEmbeddingModule(EmbeddingModule):
 class GraphSumEmbedding(GraphEmbeddingModule):
     def __init__(self,
             node_dim:int=32,
+            edge_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32, 
             output_dim:int=32,
@@ -217,6 +230,7 @@ class GraphSumEmbedding(GraphEmbeddingModule):
         ):
         super(GraphSumEmbedding,self).__init__(
             node_dim=node_dim,
+            edge_dim=edge_dim,
             mem_dim=mem_dim,
             latent_dim=latent_dim,
             output_dim=output_dim,
@@ -232,7 +246,7 @@ class GraphSumEmbedding(GraphEmbeddingModule):
         input_dim=node_dim+mem_dim if self.use_memory else node_dim
         self.linear_1=torch.nn.ModuleList([
             nn.Linear(
-                in_features=(input_dim if idx==0 else output_dim)+time_dim,
+                in_features=(input_dim if idx==0 else output_dim)+edge_dim+time_dim,
                 out_features=output_dim
             )
             for idx in range(n_layer)
@@ -247,12 +261,13 @@ class GraphSumEmbedding(GraphEmbeddingModule):
         self.relu=nn.ReLU()
 
     def aggregate(self,
-            tar_ft,
-            tar_ts_ft,
-            neighbor_ft, 
-            neighbor_ts_ft, 
-            neighbor_mask, 
-            n_layer
+            tar_ft:torch.Tensor,
+            tar_ts_ft:torch.Tensor,
+            neighbor_ft:torch.Tensor,
+            neighbor_ts_ft:torch.Tensor,
+            neighbor_edge_ft:torch.Tensor,
+            neighbor_mask:torch.Tensor,
+            n_layer:int
         ):
         """
         Input:
@@ -260,12 +275,13 @@ class GraphSumEmbedding(GraphEmbeddingModule):
             tar_ts_ft: [n_tar,time_dim]
             neighbor_ft: [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
             neighbor_ts_ft: [n_tar,n_neighbor,time_dim]
+            neighbor_edge_ft: [n_tar,n_neighbor,edge_dim]
             neighbor_mask: [n_tar,n_neighbor]
             n_layer: int
         """
         # neighbor feature 구성
         neighbor_ft=torch.concat(
-            [neighbor_ft,neighbor_ts_ft],
+            [neighbor_ft,neighbor_edge_ft,neighbor_ts_ft],
             dim=-1
         )
 
@@ -301,6 +317,7 @@ class GraphSumEmbedding(GraphEmbeddingModule):
 class GraphAttnEmbedding(GraphEmbeddingModule):
     def __init__(self,
             node_dim:int=32,
+            edge_dim:int=32,
             mem_dim:int=32,
             latent_dim:int=32, 
             output_dim:int=32,
@@ -315,6 +332,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
         ):
         super(GraphAttnEmbedding,self).__init__(
             node_dim=node_dim,
+            edge_dim=edge_dim,
             mem_dim=mem_dim,
             latent_dim=latent_dim,
             output_dim=output_dim,
@@ -331,6 +349,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
         self.attn_layers=torch.nn.ModuleList([
                 TemporalGraphAttn(
                     input_dim=layer_0_input_dim if idx==0 else output_dim,
+                    edge_dim=edge_dim,
                     latent_dim=latent_dim,
                     output_dim=output_dim,
                     time_dim=time_dim,
@@ -338,12 +357,13 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
                 )
             for idx in range(n_layer)])
     def aggregate(self,
-            tar_ft,
-            tar_ts_ft, 
-            neighbor_ft, 
-            neighbor_ts_ft, 
-            neighbor_mask, 
-            n_layer
+            tar_ft:torch.Tensor,
+            tar_ts_ft:torch.Tensor,
+            neighbor_ft:torch.Tensor,
+            neighbor_ts_ft:torch.Tensor,
+            neighbor_edge_ft:torch.Tensor,
+            neighbor_mask:torch.Tensor,
+            n_layer:int
         ):
         """
         Input:
@@ -351,6 +371,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
             tar_ts_ft: [n_tar,time_dim]
             neighbor_ft: [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
             neighbor_ts_ft: [n_tar,n_neighbor,time_dim]
+            neighbor_edge_ft: [n_tar,n_neighbor,edge_dim]
             neighbor_mask: [n_tar,n_neighbor]
             n_layer: int
         """
@@ -360,6 +381,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
             tar_ts_ft=tar_ts_ft,
             neighbor_ft=neighbor_ft,
             neighbor_ts_ft=neighbor_ts_ft,
+            neighbor_edge_ft=neighbor_edge_ft,
             neighbor_mask=neighbor_mask
         ) # [n_tar,output_dim]
         return output 

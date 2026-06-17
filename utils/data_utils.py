@@ -52,5 +52,5 @@ class DataUtils:
         ).reset_index(drop=True)
         
         # reindex edge_id
-        df["edge_id"]=range(len(df))
+        df["edge_id"]=range(1,len(df)+1)
         return df

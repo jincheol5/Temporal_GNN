@@ -1,33 +1,39 @@
 import torch
 import torch.nn as nn
 from typing_extensions import Literal
-from data import Memory
+from data import Memory,TemporalGraph
 from .time_encoder import TimeEncoder
 
 class MemoryUpdater(nn.Module):
     def __init__(self,
             mem_dim:int,
+            edge_dim:int,
             msg_dim:int,
             time_dim:int,
             time_encoder:TimeEncoder,
+            graph:TemporalGraph,
             memory:Memory,
             msg_fn:Literal["concat","mlp"]="concat",
             aggr_fn:Literal["last","mean"]="last"
         ):
         super().__init__()
         self.mem_dim=mem_dim
+        self.edge_dim=edge_dim
         self.msg_dim=msg_dim
         self.time_dim=time_dim
         self.msg_fn=msg_fn
         self.aggr_fn=aggr_fn
 
-        # module
+        # data
+        self.graph=graph
         self.memory=memory
+
+        # module
         self.time_encoder=time_encoder
         if msg_fn=="mlp":
             self.src_mlp=nn.Sequential(
                 nn.Linear(
-                    in_features=mem_dim+mem_dim+time_dim,
+                    in_features=mem_dim+mem_dim+time_dim+edge_dim,
                     out_features=msg_dim
                 ),
                 nn.ReLU(),
@@ -38,7 +44,7 @@ class MemoryUpdater(nn.Module):
             )
             self.dst_mlp=nn.Sequential(
                 nn.Linear(
-                    in_features=mem_dim+mem_dim+time_dim,
+                    in_features=mem_dim+mem_dim+time_dim+edge_dim,
                     out_features=msg_dim
                 ),
                 nn.ReLU(),
@@ -51,12 +57,14 @@ class MemoryUpdater(nn.Module):
     def create_message(self,
             src,
             dst,
+            edge,
             event_t
         ):
         """
         Input:
             src: [B,]
             dst: [B,]
+            edge: [B,]
             event_t: [B,]
         Output:
             src_msg: [B,msg_dim]
@@ -70,23 +78,27 @@ class MemoryUpdater(nn.Module):
         dst_ts=self.memory.get_node_timespan(node=dst,event_t=event_t)
         dst_ts_ft=self.time_encoder(dst_ts)
 
+        edge_ft=self.graph.get_edge_ft(edge=edge)
+
         src_msg=torch.concat(
             [
                 src_mem,
                 dst_mem,
-                src_ts_ft
+                src_ts_ft,
+                edge_ft
             ],
             dim=-1
-        ) # [B,mem_dim+mem_dim+time_dim]
+        ) # [B,mem_dim+mem_dim+time_dim+edge_dim]
 
         dst_msg=torch.concat(
             [
                 dst_mem,
                 src_mem,
-                dst_ts_ft
+                dst_ts_ft,
+                edge_ft
             ],
             dim=-1
-        ) # [B,mem_dim+mem_dim+time_dim]
+        ) # [B,mem_dim+mem_dim+time_dim,edge_dim]
 
         if self.msg_fn=="mlp":
             src_msg=self.src_mlp(src_msg) # [B,msg_dim]
@@ -167,6 +179,7 @@ class MemoryUpdater(nn.Module):
     def update_memory(self,
             src,
             dst,
+            edge,
             event_t
         ):
         """
@@ -175,11 +188,13 @@ class MemoryUpdater(nn.Module):
         Input:
             src: [B,]
             tar: [B,]
+            edge: [B,]
             event_t: [B,]
         """
         src_msg,dst_msg=self.create_message(
             src=src,
             dst=dst,
+            edge=edge,
             event_t=event_t
         )
         aggr_node,aggr_msg,aggr_event_t=self.aggregate_message(
@@ -199,6 +214,7 @@ class MemoryUpdater(nn.Module):
 class GRUMemoryUpdater(MemoryUpdater):
     def __init__(self,
             mem_dim:int,
+            edge_dim:int,
             msg_dim:int,
             time_dim:int,
             time_encoder:TimeEncoder,
@@ -208,6 +224,7 @@ class GRUMemoryUpdater(MemoryUpdater):
         ):
         super(GRUMemoryUpdater,self).__init__(
             mem_dim=mem_dim,
+            edge_dim=edge_dim,
             msg_dim=msg_dim,
             time_dim=time_dim,
             time_encoder=time_encoder,
@@ -216,7 +233,7 @@ class GRUMemoryUpdater(MemoryUpdater):
             aggr_fn=aggr_fn
         )
         if self.msg_fn=="concat":
-            input_size=mem_dim+mem_dim+time_dim
+            input_size=mem_dim+mem_dim+time_dim+edge_dim
         else:
             input_size=msg_dim
         self.memory_updater=nn.GRUCell(

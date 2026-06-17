@@ -8,6 +8,7 @@ class TemporalGraphAttn(nn.Module):
     """
     def __init__(self,
             input_dim:int,
+            edge_dim:int,
             latent_dim:int,
             output_dim:int,
             time_dim:int,
@@ -15,19 +16,21 @@ class TemporalGraphAttn(nn.Module):
         ):
         super().__init__()
         self.input_dim=input_dim
+        self.edge_dim=edge_dim
         self.latent_dim=latent_dim
         self.output_dim=output_dim
         self.time_dim=time_dim
-        self.qkv_dim=input_dim+time_dim
+        self.q_dim=input_dim+time_dim
+        self.kv_dim=input_dim+edge_dim+time_dim
         self.multi_head_attn=nn.MultiheadAttention(
-            embed_dim=self.qkv_dim,
-            kdim=self.qkv_dim,
-            vdim=self.qkv_dim,
+            embed_dim=self.q_dim,
+            kdim=self.kv_dim,
+            vdim=self.kv_dim,
             num_heads=n_head
         )
         self.MLPs=nn.Sequential(
             nn.Linear(
-                in_features=self.qkv_dim+self.input_dim,
+                in_features=self.q_dim+self.input_dim,
                 out_features=self.latent_dim
             ),
             nn.ReLU(),
@@ -41,6 +44,7 @@ class TemporalGraphAttn(nn.Module):
             tar_ts_ft:torch.Tensor,
             neighbor_ft:torch.Tensor,
             neighbor_ts_ft:torch.Tensor,
+            neighbor_edge_ft:torch.Tensor,
             neighbor_mask:torch.Tensor
         ):
         """
@@ -49,6 +53,7 @@ class TemporalGraphAttn(nn.Module):
             tar_ts_ft: [B,time_dim]
             neighbor_ft: [B,K,input_dim]
             neighbor_ts_ft: [B,K,time_dim]
+            neighbor_edge_ft: [B,K,edge_dim]
             neighbor_mask: [B,K]
         Output:
             updated tar_ft: # [B,output_dim]
@@ -62,18 +67,18 @@ class TemporalGraphAttn(nn.Module):
             dim=2
         ) # -> [B,1,input_dim+time_dim]
         key=torch.cat(
-            [neighbor_ft,neighbor_ts_ft],
+            [neighbor_ft,neighbor_edge_ft,neighbor_ts_ft],
             dim=2
-        ) # -> [B,K,input_dim+time_dim]
+        ) # -> [B,K,input_dim+edge_dim+time_dim]
         value=torch.cat(
-            [neighbor_ft,neighbor_ts_ft],
+            [neighbor_ft,neighbor_edge_ft,neighbor_ts_ft],
             dim=2
-        ) # -> [B,K,input_dim+time_dim]
+        ) # -> [B,K,input_dim+edge_dim+time_dim]
 
         ### set to [L,B,D]
         query=query.permute([1,0,2]) # -> [1,B,input_dim+time_dim] 
-        key=key.permute([1,0,2]) # -> [N,B,input_dim+time_dim] 
-        value=value.permute([1,0,2]) # -> [N,B,input_dim+time_dim] 
+        key=key.permute([1,0,2]) # -> [N,B,input_dim+edge_dim+time_dim] 
+        value=value.permute([1,0,2]) # -> [N,B,input_dim+edge_dim+time_dim] 
 
         ### transform n_mask for nn.MultiheadAttention's key_padding_mask
         # key_padding_mask에서는 True가 padding될 neighbor을 의미

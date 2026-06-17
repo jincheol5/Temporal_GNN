@@ -6,6 +6,7 @@ from module import TimeEncoder,GraphAttnEmbedding
 class TGAT_Base(nn.Module):
     def __init__(self,
             node_dim:int,
+            edge_dim:int,
             latent_dim:int,
             time_dim:int,
             output_dim:int,
@@ -16,6 +17,7 @@ class TGAT_Base(nn.Module):
         ):
         super().__init__()
         self.node_dim=node_dim
+        self.edge_dim=edge_dim
         self.latent_dim=latent_dim
         self.time_dim=time_dim
         self.output_dim=output_dim
@@ -30,6 +32,7 @@ class TGAT_Base(nn.Module):
         # encoder
         self.encoder=GraphAttnEmbedding(
             node_dim=node_dim,
+            edge_dim=edge_dim,
             latent_dim=latent_dim,
             time_dim=time_dim,
             output_dim=output_dim,
@@ -47,6 +50,7 @@ class TGAT_Base(nn.Module):
 class TGAT_Link_Prediction(TGAT_Base):
     def __init__(self,
             node_dim:int,
+            edge_dim:int,
             latent_dim:int,
             time_dim:int,
             output_dim:int,
@@ -57,6 +61,7 @@ class TGAT_Link_Prediction(TGAT_Base):
         ):
         super(TGAT_Link_Prediction,self).__init__(
             node_dim=node_dim,
+            edge_dim=edge_dim,
             latent_dim=latent_dim,
             time_dim=time_dim,
             output_dim=output_dim,
@@ -85,16 +90,18 @@ class TGAT_Link_Prediction(TGAT_Base):
         """
         Input:
             pos_event: dict
-                key: src, dst, event_t
+                key: src, dst, edge, event_t
                 value: 
                     src: [B,] 
                     dst: [B,] 
+                    edge: [B,]
                     event_t: [B,]
             neg_event: dict
-                key: src, dst, event_t
+                key: src, dst, edge, event_t
                 value:
                     src: [B,] 
-                    dst: [B,] 
+                    dst: [B,]
+                    edge: [B,] 
                     event_t: [B,]
         """
         ### 0. unpack event dict
@@ -127,6 +134,6 @@ class TGAT_Link_Prediction(TGAT_Base):
         src_ft=tar_ft[:batch_size]
         dst_ft=tar_ft[batch_size:]
         
-        edge_ft=torch.concat([src_ft,dst_ft],dim=-1) # [2B,output_dim+output_dim]
-        pred_edge_logit=self.decoder(edge_ft) # [2B,1]
-        return pred_edge_logit
+        link_ft=torch.concat([src_ft,dst_ft],dim=-1) # [2B,output_dim+output_dim]
+        pred_link_logit=self.decoder(link_ft) # [2B,1]
+        return pred_link_logit

@@ -15,11 +15,8 @@ def test_fn(**kwargs):
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
             dataset=TemporalGraphDataset(df=df)
             for idx in range(5):
-                src,dst,event_t=dataset.__getitem__(idx=idx)
-                print(f"{idx} row values:")
-                print(src)
-                print(dst)
-                print(event_t)
+                src,dst,edge,event_t=dataset.__getitem__(idx=idx)
+                print(f"{idx} row values: {src} to {dst} at {event_t} (edge_id: {edge})")
 
         case 2:
             """
@@ -32,10 +29,11 @@ def test_fn(**kwargs):
                 batch_size=4,
                 shuffle=False
             )
-            for batch_idx,(src,dst,event_t) in enumerate(loader):
+            for batch_idx,(src,dst,edge,event_t) in enumerate(loader):
                 print(f"{batch_idx+1} batch values:")
                 print(src)
                 print(dst)
+                print(edge)
                 print(event_t)
                 break
 

@@ -6,15 +6,18 @@ from collections import defaultdict
 class TemporalGraph:
     """
     node_id=0: padding node
+    edge_id=0: padding edge
     """
     def __init__(self,
             df:pd.DataFrame,
-            node_dim:int
+            node_dim:int,
+            edge_dim:int
         ):
         """
         Input:
             df: pd.DataFrame, sorted by event time
             node_dim: int
+            edge_dim: int
         """
         # set adj, adj_t
         self.adj=defaultdict(list)
@@ -35,14 +38,23 @@ class TemporalGraph:
             dtype=torch.float32
         )
 
+        # set edge_ft
+        self.n_edge=df["edge_id"].max()
+        self.edge_ft=torch.zeros(
+            (self.n_edge+1,edge_dim),
+            dtype=torch.float32
+        )
+
     def set_graph(self,
             df:pd.DataFrame,
-            node_dim:int
+            node_dim:int,
+            edge_dim:int
         ):
         """
         Input:
             df: pd.DataFrame, sorted by event time
             node_dim: int
+            edge_dim: int
         """
         # set adj, adj_t
         self.adj=defaultdict(list)
@@ -63,8 +75,18 @@ class TemporalGraph:
             dtype=torch.float32
         )
 
+        # set edge_ft
+        self.n_edge=df["edge_id"].max()
+        self.edge_ft=torch.zeros(
+            (self.n_edge+1,edge_dim),
+            dtype=torch.float32
+        )
+
     def get_num_node(self):
         return self.n_node
+
+    def get_num_edge(self):
+        return self.n_edge
 
     def get_node_ft(self,node:torch.Tensor=None):
         """
@@ -75,6 +97,16 @@ class TemporalGraph:
         """
         device=node.device
         return self.node_ft.to(device=device)[node]
+
+    def get_edge_ft(self,edge:torch.Tensor=None):
+        """
+        Input:
+            edge: [E,]
+        Return:
+            edge_ft
+        """
+        device=edge.device
+        return self.edge_ft.to(device=device)[edge]
 
     def get_temporal_neighbor(self,
             tar:torch.Tensor,
@@ -88,14 +120,14 @@ class TemporalGraph:
             num_neighbor: int
             seed: int
         Return:
-            neighbor_i: [B,num_neighbor]
+            neighbor: [B,num_neighbor]
             neighbor_t: [B,num_neighbor]
             neighbor_ts: [B,num_neighbor]
-            edge_ids: [B,num_neighbor]
+            neighbor_edge: [B,num_neighbor]
         """
         device=tar.device
         batch_size=tar.size(0)
-        neighbor_id=torch.zeros(
+        neighbor=torch.zeros(
             (batch_size,n_neighbor),
             dtype=torch.long,
             device=device
@@ -110,7 +142,7 @@ class TemporalGraph:
             dtype=torch.float,
             device=device
         )
-        edge_id=torch.zeros(
+        neighbor_edge=torch.zeros(
             (batch_size,n_neighbor),
             dtype=torch.long,
             device=device
@@ -141,8 +173,8 @@ class TemporalGraph:
             # 앞은 0 padding, 뒤에 실제 neighbor 저장
             offset=n_neighbor-len(selected_neighbors)
             for idx,((src,e_id),t) in enumerate(zip(selected_neighbors,selected_times)):
-                neighbor_id[b,offset+idx]=src
+                neighbor[b,offset+idx]=src
                 neighbor_t[b,offset+idx]=t
                 neighbor_ts[b,offset+idx]=abs(cut_time-t)
-                edge_id[b,offset+idx]=e_id
-        return neighbor_id,neighbor_t,neighbor_ts,edge_id
+                neighbor_edge[b,offset+idx]=e_id
+        return neighbor,neighbor_t,neighbor_ts,neighbor_edge

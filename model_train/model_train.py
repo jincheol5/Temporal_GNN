@@ -34,7 +34,7 @@ class ModelTrainer:
         for epoch in tqdm(range(kwargs["epoch"]),desc=f"Model Training..."):
             model.train()
             batch_count=0
-            for src,dst,event_t in tqdm(
+            for src,dst,edge,event_t in tqdm(
                     train_loader,
                     desc=f"Training epoch: {epoch+1}..."
                 ):
@@ -42,6 +42,7 @@ class ModelTrainer:
 
                 src=src.to(device) # [B,]
                 dst=dst.to(device) # [B,]
+                edge=edge.to(device) # [B,]
                 event_t=event_t.to(device) # [B,]
                 neg_dst=Sampling.random_negative_sampling(
                     src=src,
@@ -52,11 +53,13 @@ class ModelTrainer:
                 pos_event={
                     "src":src,
                     "dst":dst,
+                    "edge":edge,
                     "event_t":event_t
                 }
                 neg_event={
                     "src":src,
                     "dst":neg_dst,
+                    "edge":edge,
                     "event_t":event_t
                 }
 
@@ -107,12 +110,13 @@ class ModelTrainer:
         n_node=model.graph.get_num_node()
         acc_list=[]
         with torch.no_grad():
-            for src,dst,event_t in tqdm(
+            for src,dst,edge,event_t in tqdm(
                     data_loader,
                     desc=f"Evaluating..."
                 ):
                 src=src.to(device) # [B,]
                 dst=dst.to(device) # [B,]
+                edge=edge.to(device) # [B,]
                 event_t=event_t.to(device) # [B,]
                 neg_dst=Sampling.random_negative_sampling(
                     src=src,
@@ -123,11 +127,13 @@ class ModelTrainer:
                 pos_event={
                     "src":src,
                     "dst":dst,
+                    "edge":edge,
                     "event_t":event_t
                 }
                 neg_event={
                     "src":src,
                     "dst":neg_dst,
+                    "edge":edge,
                     "event_t":event_t
                 }
 

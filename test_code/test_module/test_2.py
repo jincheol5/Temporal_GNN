@@ -16,17 +16,19 @@ def test_fn(**kwargs):
             """
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             node_dim=4
+            edge_dim=4
             mem_dim=4
             latent_dim=4
             output_dim=4
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
-            graph=TemporalGraph(df=df,node_dim=node_dim)
+            graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
             memory=Memory(n_node=n_node,mem_dim=mem_dim)
 
             embed_module=IdentityEmbedding(
                 node_dim=node_dim,
+                edge_dim=edge_dim,
                 mem_dim=mem_dim,
                 latent_dim=latent_dim,
                 output_dim=output_dim,
@@ -44,17 +46,19 @@ def test_fn(**kwargs):
             """
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             node_dim=4
+            edge_dim=4
             mem_dim=4
             latent_dim=4
             output_dim=4
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
-            graph=TemporalGraph(df=df,node_dim=node_dim)
+            graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
             memory=Memory(n_node=n_node,mem_dim=mem_dim)
 
             embed_module=TimeProjectionEmbedding(
                 node_dim=node_dim,
+                edge_dim=edge_dim,
                 mem_dim=mem_dim,
                 latent_dim=latent_dim,
                 output_dim=output_dim,
@@ -73,12 +77,13 @@ def test_fn(**kwargs):
             """
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             node_dim=4
+            edge_dim=4
             mem_dim=4
             latent_dim=4
             output_dim=4
             
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
-            graph=TemporalGraph(df=df,node_dim=node_dim)
+            graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
             memory=Memory(n_node=n_node,mem_dim=mem_dim)
@@ -91,6 +96,7 @@ def test_fn(**kwargs):
             use_memory=True
             embed_module=GraphSumEmbedding(
                 node_dim=node_dim,
+                edge_dim=edge_dim,
                 mem_dim=mem_dim,
                 latent_dim=latent_dim, 
                 output_dim=output_dim,
@@ -98,13 +104,14 @@ def test_fn(**kwargs):
                 graph=graph,
                 memory=memory,
                 n_layer=n_layer,
+                n_neighbor=n_neighbor,
                 use_memory=use_memory,
                 time_encoder=time_encoder
             )
 
             tar=torch.tensor([6,7,8],dtype=torch.long,device=device)
             tar_t=torch.tensor([10.0,10.0,10.0],dtype=torch.float32,device=device)
-            updated_tar_ft=embed_module.compute_embedding(tar=tar,tar_t=tar_t,n_layer=n_layer,n_neighbor=n_neighbor)
+            updated_tar_ft=embed_module.compute_embedding(tar=tar,tar_t=tar_t,n_layer=n_layer)
             print(f"udpated_tar_ft using GraphSumEmbedding:")
             print(updated_tar_ft)
         
@@ -114,12 +121,13 @@ def test_fn(**kwargs):
             """
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             node_dim=4
+            edge_dim=4
             mem_dim=4
             latent_dim=4
             output_dim=4
             
             df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
-            graph=TemporalGraph(df=df,node_dim=node_dim)
+            graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
             memory=Memory(n_node=n_node,mem_dim=mem_dim)
@@ -133,6 +141,7 @@ def test_fn(**kwargs):
             use_memory=True
             embed_module=GraphAttnEmbedding(
                 node_dim=node_dim,
+                edge_dim=edge_dim,
                 mem_dim=mem_dim,
                 latent_dim=latent_dim, 
                 output_dim=output_dim,
@@ -140,6 +149,7 @@ def test_fn(**kwargs):
                 graph=graph,
                 memory=memory,
                 n_layer=n_layer,
+                n_neighbor=n_neighbor,
                 n_head=n_head,
                 use_memory=use_memory,
                 time_encoder=time_encoder
@@ -147,7 +157,7 @@ def test_fn(**kwargs):
 
             tar=torch.tensor([6,7,8],dtype=torch.long,device=device)
             tar_t=torch.tensor([10.0,10.0,10.0],dtype=torch.float32,device=device)
-            updated_tar_ft=embed_module.compute_embedding(tar=tar,tar_t=tar_t,n_layer=n_layer,n_neighbor=n_neighbor)
+            updated_tar_ft=embed_module.compute_embedding(tar=tar,tar_t=tar_t,n_layer=n_layer)
             print(f"udpated_tar_ft using GraphAttnEmbedding:")
             print(updated_tar_ft)
 

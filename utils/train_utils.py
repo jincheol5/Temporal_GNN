@@ -6,13 +6,14 @@ class TemporalGraphDataset(Dataset):
     def __init__(self,df:pd.DataFrame):
         self.src=torch.tensor(df["src"].values,dtype=torch.long)
         self.dst=torch.tensor(df["dst"].values,dtype=torch.long)
+        self.edge=torch.tensor(df["edge_id"].values,dtype=torch.long)
         self.t=torch.tensor(df["t"].values,dtype=torch.float32)
 
     def __len__(self):
         return len(self.src)
 
     def __getitem__(self,idx):
-        return self.src[idx],self.dst[idx],self.t[idx]
+        return self.src[idx],self.dst[idx],self.edge[idx],self.t[idx]
 
 class TrainUtils:
     @staticmethod
