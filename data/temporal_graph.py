@@ -179,11 +179,75 @@ class TemporalGraph:
                 neighbor_edge[b,offset+idx]=e_id
         return neighbor,neighbor_t,neighbor_ts,neighbor_edge
     
-    def get_historical_neighbor_ft(self,
+    def get_historical_seq(self,
+            node:torch.Tensor,
+            event_t:torch.Tensor,
             seq_len:int
         ):
         """
         DyGFormer
-        Input:
 
+        현재 node가 dst인 경우의 interact history만 사용한다.
+
+        Input:
+            node: [B,]
+            event_t: [B,]
+            seq_len: int
+        Output:
+            seq_N: [B,seq_len,node_dim], seq_N은 
+            seq_E: [B,seq_len,edge_dim]
+            seq_T: [B,seq_len,1]
         """
+        device=node.device
+        batch_size=node.size(0)
+
+        seq_neighbor_node=torch.zeros(
+            (batch_size,seq_len),
+            dtype=torch.long,
+            device=device
+        )
+        seq_neighbor_edge=torch.zeros(
+            (batch_size,seq_len),
+            dtype=torch.long,
+            device=device
+        )
+        seq_T=torch.zeros(
+            (batch_size,seq_len),
+            dtype=torch.float32,
+            device=device
+        )
+        for b in range(batch_size):
+            node_id=int(node[b].item())
+            cut_time=float(event_t[b].item())
+
+            neighbors=self.adj.get(node_id,[])
+            times=self.adj_t.get(node_id,[])
+
+            if len(neighbors)==0:
+                continue
+
+            times_np=np.asarray(times,dtype=np.float32)
+
+            # t < cut_time 인 interaction만 사용
+            cut_idx=np.searchsorted(
+                times_np,
+                cut_time,
+                side="left"
+            )
+
+            # 최근 seq_len개 interaction 선택
+            start_idx=max(0,cut_idx-seq_len)
+            selected_neighbors=neighbors[start_idx:cut_idx]
+            selected_times=times[start_idx:cut_idx]
+
+            # 앞쪽은 padding 0, 뒤쪽에 실제 sequence 저장
+            offset=seq_len-len(selected_neighbors)
+            for idx,((src,e_id),t) in enumerate(zip(selected_neighbors,selected_times)):
+                pos=offset+idx
+                seq_neighbor_node[b,pos]=src
+                seq_neighbor_edge[b,pos]=e_id
+                seq_T[b,pos]=cut_time-float(t)
+        seq_N=self.get_node_ft(seq_neighbor_node) # [B,seq_len,node_dim]
+        seq_E=self.get_edge_ft(seq_neighbor_edge) # [B,seq_len,edge_dim]
+        seq_T=seq_T.unsqueeze(-1) # [B,seq_len,1]
+        return seq_N,seq_E,seq_T
