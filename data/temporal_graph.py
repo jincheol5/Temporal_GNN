@@ -178,3 +178,12 @@ class TemporalGraph:
                 neighbor_ts[b,offset+idx]=abs(cut_time-t)
                 neighbor_edge[b,offset+idx]=e_id
         return neighbor,neighbor_t,neighbor_ts,neighbor_edge
+    
+    def get_historical_neighbor_ft(self,
+            seq_len:int
+        ):
+        """
+        DyGFormer
+        Input:
+
+        """

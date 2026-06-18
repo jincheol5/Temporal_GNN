@@ -112,3 +112,11 @@ class TemporalGraphAttn(nn.Module):
         ) # -> [B,input_dim+time_dim||input_dim]
         output=self.MLPs(ffn_input) # [B,output_dim]
         return output
+
+class TransformerEncoderBlock(nn.Module):
+    """
+    Transformer Encoder Block
+    """
+    def __init__(self):
+        super().__init__()
+        
