@@ -62,7 +62,7 @@ class TrainUtils:
         return edge_label
 
     @staticmethod
-    def get_padded_seq(
+    def padding_seq(
             src_seq_node:list,
             src_seq_edge:list,
             src_seq_ts:list,
@@ -75,6 +75,8 @@ class TrainUtils:
             device:torch.device
         ):
         """
+        Padding Sequence in DyGFormer
+
         Step:
             1. src_seq_node와 dst_seq_node, n_patch 정보로 max_seq_len 을 구한다.
                 1-1. src_seq_node와 dst_seq_node에서 max_history_len 구한다.
@@ -169,49 +171,51 @@ class TrainUtils:
         )
 
         # 4. 실제 sequence 채우기
-        # DyGFormer 공식 코드 방식에 맞춰 right padding:
-        # [history..., 0, 0, 0]
+        # DyGFormer 공식 코드 방식에 맞춰 left padding:
+        # [0, 0, 0, history...]
         for b in range(batch_size):
             src_len=len(src_seq_node[b])
             dst_len=len(dst_seq_node[b])
             if src_len>0:
-                padded_src_seq_node[b,:src_len]=torch.as_tensor(
+                src_start=max_seq_len-src_len
+                padded_src_seq_node[b,src_start:]=torch.as_tensor(
                     src_seq_node[b],
                     dtype=torch.long,
                     device=device
                 )
-                padded_src_seq_edge[b,:src_len]=torch.as_tensor(
+                padded_src_seq_edge[b,src_start:]=torch.as_tensor(
                     src_seq_edge[b],
                     dtype=torch.long,
                     device=device
                 )
-                padded_src_seq_ts[b,:src_len,0]=torch.as_tensor(
+                padded_src_seq_ts[b,src_start:,0]=torch.as_tensor(
                     src_seq_ts[b],
                     dtype=torch.float32,
                     device=device
                 )
-                padded_src_seq_co[b,:src_len]=torch.as_tensor(
+                padded_src_seq_co[b,src_start:]=torch.as_tensor(
                     src_seq_co[b],
                     dtype=torch.float32,
                     device=device
                 )
             if dst_len > 0:
-                padded_dst_seq_node[b,:dst_len]=torch.as_tensor(
+                dst_start=max_seq_len-dst_len
+                padded_dst_seq_node[b,dst_start:]=torch.as_tensor(
                     dst_seq_node[b],
                     dtype=torch.long,
                     device=device
                 )
-                padded_dst_seq_edge[b,:dst_len]=torch.as_tensor(
+                padded_dst_seq_edge[b,dst_start:]=torch.as_tensor(
                     dst_seq_edge[b],
                     dtype=torch.long,
                     device=device
                 )
-                padded_dst_seq_ts[b,:dst_len,0]=torch.as_tensor(
+                padded_dst_seq_ts[b,dst_start:,0]=torch.as_tensor(
                     dst_seq_ts[b],
                     dtype=torch.float32,
                     device=device
                 )
-                padded_dst_seq_co[b,:dst_len]=torch.as_tensor(
+                padded_dst_seq_co[b,dst_start:]=torch.as_tensor(
                     dst_seq_co[b],
                     dtype=torch.float32,
                     device=device
@@ -228,7 +232,11 @@ class TrainUtils:
         }
     
     @staticmethod
-    def get_patching_seq(
+    def patching_seq(
+            seq_node_ft:torch.Tensor,
+            seq_edge_ft:torch.Tensor,
+            seq_ts_ft:torch.Tensor,
+            seq_co_ft:torch.Tensor,
             n_patch:int
         ):
         """
@@ -239,5 +247,45 @@ class TrainUtils:
             seq_edge_ft: [B,max_seq_len,edge_dim]
             seq_ts_ft: [B,max_seq_len,time_dim]
             seq_co_ft: [B,max_seq_len,co_dim]
+            n_patch: int
         Return:
+            p=patch_size
+            l=max_seq_len/patch_size
+            dict:
+                M_n: [B,l,node_dim x p]
+                M_e: [B,l,edge_dim x p]
+                M_t: [B,l,time_dim x p]
+                M_c: [B,l,co_dim x p]
         """
+        batch_size,max_seq_len,node_dim=seq_node_ft.size()
+        edge_dim=seq_edge_ft.size(2)
+        time_dim=seq_ts_ft.size(2)
+        co_dim=seq_co_ft.size(2)
+
+        l=int(max_seq_len//n_patch)
+        M_n=seq_node_ft.reshape(
+            batch_size,
+            l,
+            n_patch*node_dim
+        ) # [B,l,node_dim x p]
+        M_e=seq_edge_ft.reshape(
+            batch_size,
+            l,
+            n_patch*edge_dim
+        ) # [B,l,edge_dim x p]
+        M_t=seq_ts_ft.reshape(
+            batch_size,
+            l,
+            n_patch*time_dim
+        ) # [B,l,time_dim x p]
+        M_c=seq_co_ft.reshape(
+            batch_size,
+            l,
+            n_patch*co_dim 
+        ) # [B,l,co_dim x p]
+        return {
+            "M_n":M_n,
+            "M_e":M_e,
+            "M_t":M_t,
+            "M_c":M_c
+        }

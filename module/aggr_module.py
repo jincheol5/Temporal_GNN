@@ -117,6 +117,64 @@ class TransformerEncoderBlock(nn.Module):
     """
     Transformer Encoder Block
     """
-    def __init__(self):
+    def __init__(self,
+            attn_dim:int,
+            latent_dim:int,
+            n_head:int,
+            dropout:float=0.1
+        ):
         super().__init__()
-        
+        self.multi_head_attention=nn.MultiheadAttention(
+            embed_dim=attn_dim,
+            num_heads=n_head,
+            dropout=dropout
+        )
+        self.dropout=nn.Dropout(dropout)
+        self.linear_layers=nn.ModuleList([
+            nn.Linear(in_features=attn_dim,out_features=latent_dim),
+            nn.Linear(in_features=latent_dim,out_features=attn_dim)
+        ])
+        self.norm_layers=nn.ModuleList([
+            nn.LayerNorm(attn_dim),
+            nn.LayerNorm(attn_dim)
+        ])
+        self.gelu=nn.GELU()
+    
+    def forward(self,
+            z:torch.Tensor
+        ):
+        """
+        Input:
+            z: [B,2l,4d], z=z_src에 z_dst을 dim=0으로 concat, 4d=attn_dim
+        Output:
+            out: [B,2l,4d]
+        """
+        ### Pre-LN
+        norm_z=self.norm_layers[0](z) # [B, 2l, 4d]
+
+        ### PyTorch MultiheadAttention 기본 입력 shape=[seq_len,batch_size,attn_dim]
+        norm_z_t=norm_z.transpose(0,1) 
+
+        ### Self-Attention: query = key = value = z
+        attn_out,_=self.multi_head_attention(
+            query=norm_z_t,
+            key=norm_z_t,
+            value=norm_z_t
+        ) # [2l,B,4d]
+        attn_out=attn_out.transpose(0,1)  # [B,2l,4d]
+
+        ### Residual
+        out=z+self.dropout(attn_out)  
+
+        ### Pre-LN
+        norm_out=self.norm_layers[1](out) # [B,2l,4d]
+
+        ### FFN
+        hidden=self.linear_layers[0](norm_out) # [B,2l,latent_dim]
+        hidden=self.gelu(hidden)
+        hidden=self.dropout(hidden)
+        hidden=self.linear_layers[1](hidden) # [B,2l,4d]
+
+        ### Residual
+        out=out+self.dropout(hidden) # [B,2l,4d]
+        return out
