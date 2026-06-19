@@ -177,77 +177,150 @@ class TemporalGraph:
                 neighbor_t[b,offset+idx]=t
                 neighbor_ts[b,offset+idx]=abs(cut_time-t)
                 neighbor_edge[b,offset+idx]=e_id
-        return neighbor,neighbor_t,neighbor_ts,neighbor_edge
+        return {
+            "neighbor":neighbor,
+            "neighbor_t":neighbor_t,
+            "neighbor_ts":neighbor_ts,
+            "neighbor_edge":neighbor_edge
+        }
     
     def get_historical_seq(self,
             node:torch.Tensor,
-            event_t:torch.Tensor,
-            seq_len:int
+            event_t:torch.Tensor
         ):
         """
-        DyGFormer
-
-        현재 node가 dst인 경우의 interact history만 사용한다.
-
         Input:
             node: [B,]
             event_t: [B,]
-            seq_len: int
-        Output:
-            seq_N: [B,seq_len,node_dim], seq_N은 
-            seq_E: [B,seq_len,edge_dim]
-            seq_T: [B,seq_len,1]
+        Return:
+            seq_node: list of [history_len] arr
+            seq_edge: list of [history_len] arr
+            seq_ts: list of [history_len] arr
         """
-        device=node.device
-        batch_size=node.size(0)
+        seq_node=[]
+        seq_edge=[]
+        seq_ts=[]
+        node_np=node.detach().cpu().numpy()
+        event_t_np=event_t.detach().cpu().numpy()
 
-        seq_neighbor_node=torch.zeros(
-            (batch_size,seq_len),
-            dtype=torch.long,
-            device=device
-        )
-        seq_neighbor_edge=torch.zeros(
-            (batch_size,seq_len),
-            dtype=torch.long,
-            device=device
-        )
-        seq_T=torch.zeros(
-            (batch_size,seq_len),
-            dtype=torch.float32,
-            device=device
-        )
-        for b in range(batch_size):
-            node_id=int(node[b].item())
-            cut_time=float(event_t[b].item())
+        for node_id,cut_time in zip(node_np,event_t_np):
+            node_id=int(node_id)
+            cut_time=float(cut_time)
 
             neighbors=self.adj.get(node_id,[])
             times=self.adj_t.get(node_id,[])
 
             if len(neighbors)==0:
+                seq_node.append(np.array([],dtype=np.longlong))
+                seq_edge.append(np.array([],dtype=np.longlong))
+                seq_ts.append(np.array([],dtype=np.float32))
                 continue
 
             times_np=np.asarray(times,dtype=np.float32)
 
-            # t < cut_time 인 interaction만 사용
+            # t < cut_time 인 interaction만 선택
             cut_idx=np.searchsorted(
                 times_np,
                 cut_time,
                 side="left"
             )
 
-            # 최근 seq_len개 interaction 선택
-            start_idx=max(0,cut_idx-seq_len)
-            selected_neighbors=neighbors[start_idx:cut_idx]
-            selected_times=times[start_idx:cut_idx]
+            selected_neighbors=neighbors[:cut_idx]
+            selected_times=times_np[:cut_idx]
+            history_nodes=np.array(
+                [src for src,_ in selected_neighbors],
+                dtype=np.longlong
+            )
+            history_edges=np.array(
+                [edge_id for _,edge_id in selected_neighbors],
+                dtype=np.longlong
+            )
+            history_ts=(
+                cut_time-selected_times
+            ).astype(np.float32)
 
-            # 앞쪽은 padding 0, 뒤쪽에 실제 sequence 저장
-            offset=seq_len-len(selected_neighbors)
-            for idx,((src,e_id),t) in enumerate(zip(selected_neighbors,selected_times)):
-                pos=offset+idx
-                seq_neighbor_node[b,pos]=src
-                seq_neighbor_edge[b,pos]=e_id
-                seq_T[b,pos]=cut_time-float(t)
-        seq_N=self.get_node_ft(seq_neighbor_node) # [B,seq_len,node_dim]
-        seq_E=self.get_edge_ft(seq_neighbor_edge) # [B,seq_len,edge_dim]
-        seq_T=seq_T.unsqueeze(-1) # [B,seq_len,1]
-        return seq_N,seq_E,seq_T
+            seq_node.append(history_nodes)
+            seq_edge.append(history_edges)
+            seq_ts.append(history_ts)
+        return {
+            "seq_node": seq_node,
+            "seq_edge": seq_edge,
+            "seq_ts": seq_ts
+        }
+
+    def get_co_occurrence(self,
+            src_seq_node:list,
+            dst_seq_node:list,
+        ):
+        """
+        DyGFormer Neighbor Co-occurrence
+
+        Input:
+            src_seq_node: list of [history_len] arr
+            dst_seq_node: list of [history_len] arr
+        Return:
+            src_seq_co: list of [src_history_len,2] tensor
+            dst_seq_co: list of [dst_history_len,2] tensor
+        """
+        src_seq_co=[]
+        dst_seq_co=[]
+        for src_ids,dst_ids in zip(src_seq_node,dst_seq_node):
+            src_unique,src_inverse,src_counts=np.unique(
+                src_ids,
+                return_inverse=True,
+                return_counts=True
+            )
+            dst_unique,dst_inverse,dst_counts=np.unique(
+                dst_ids,
+                return_inverse=True,
+                return_counts=True
+            )
+            # src neighbor node가 src sequence에서 등장한 횟수
+            src_neighbor_count_in_src_seq=torch.from_numpy(
+                src_counts[src_inverse]
+            ).float()  # [src_history_len]
+
+            # dst neighbor node가 dst sequence에서 등장한 횟수
+            dst_neighbor_count_in_dst_seq=torch.from_numpy(
+                dst_counts[dst_inverse]
+            ).float()  # [dst_history_len]
+
+            src_mapping=dict(zip(src_unique,src_counts))
+            dst_mapping=dict(zip(dst_unique,dst_counts))
+
+            # src neighbor node가 dst sequence에서 등장한 횟수
+            src_neighbor_count_in_dst_seq=torch.tensor(
+                [dst_mapping.get(x,0) for x in src_ids],
+                dtype=torch.float32
+            )
+
+            # dst neighbor node가 src sequence에서 등장한 횟수
+            dst_neighbor_count_in_src_seq=torch.tensor(
+                [src_mapping.get(x,0) for x in dst_ids],
+                dtype=torch.float32
+            )
+
+            src_seq_co.append(
+                torch.stack(
+                    [
+                        src_neighbor_count_in_src_seq,
+                        src_neighbor_count_in_dst_seq
+                    ],
+                    dim=1
+                )
+            )  # [src_history_len,2]
+
+            dst_seq_co.append(
+                torch.stack(
+                    [
+                        dst_neighbor_count_in_src_seq,
+                        dst_neighbor_count_in_dst_seq
+                    ],
+                    dim=1
+                )
+            )  # [dst_history_len,2]
+
+        return {
+            "src_seq_co": src_seq_co, # list of [src_history_len,2]
+            "dst_seq_co": dst_seq_co # list of [dst_history_len,2]
+        }

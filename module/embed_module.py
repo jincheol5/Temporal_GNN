@@ -167,19 +167,24 @@ class GraphEmbeddingModule(EmbeddingModule):
                 n_layer=n_layer-1
             ) # [n_tar,tar_dim] if n_layer=1 else # [n_tar,output_dim]
 
-            neighbor_id,neighbor_t,neighbor_ts,neighbor_edge=self.graph.get_temporal_neighbor(
+            temporal_neighbor=self.graph.get_temporal_neighbor(
                 tar=tar,
                 tar_t=tar_t,
                 n_neighbor=self.n_neighbor
             )
+            neighbor=temporal_neighbor["neighbor"]
+            neighbor_t=temporal_neighbor["neighbor_t"]
+            neighbor_ts=temporal_neighbor["neighbor_ts"]
+            neighbor_edge=temporal_neighbor["neighbor_edge"]
+
 
             # flatten for neighbor embedding
-            n_tar,n_neighbor=neighbor_id.size()
-            neighbor_id=neighbor_id.flatten() # [n_tar,n_neighbor] -> [n_tar x n_neighbor,]
+            n_tar,n_neighbor=neighbor.size()
+            neighbor=neighbor.flatten() # [n_tar,n_neighbor] -> [n_tar x n_neighbor,]
             neighbor_t=neighbor_t.flatten() # [n_tar,n_neighbor] -> [n_tar x n_neighbor,]
 
             # compute neighbor_mask
-            neighbor_mask=neighbor_id!=0 # [n_tar x n_neighbor,], bool
+            neighbor_mask=neighbor!=0 # [n_tar x n_neighbor,], bool
             
             # apply time encoding
             tar_ts=torch.zeros_like(tar,dtype=torch.float32,device=tar.device).unsqueeze(-1) # [n_tar,1]
@@ -189,7 +194,7 @@ class GraphEmbeddingModule(EmbeddingModule):
 
             # get neighbor embedding
             neighbor_ft=self.compute_embedding(
-                tar=neighbor_id,
+                tar=neighbor,
                 tar_t=neighbor_t,
                 n_layer=n_layer-1
             ) # [n_tar x n_neighbor,tar_dim] if n_layer=1 else [n_tar x n_neighbor,output_dim] 
