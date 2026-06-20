@@ -115,7 +115,19 @@ class TemporalGraphAttn(nn.Module):
 
 class TransformerEncoderBlock(nn.Module):
     """
-    Transformer Encoder Block
+    Transformer Encoder Block in DyGFormer
+
+    Block 구성:
+        1. Multi-head Self-Attention (MSA) part
+            1-1. Layer Normalization
+            1-2. Multi-head Self-Attention
+            1-3. Residual connection
+        2. Feed-Forward Network (FFN) part
+            2-1. Layer Normalization
+            2-2. Feed-Forward Network
+            2-3. Residual connection
+    
+    FFN 내부 비활성화 함수=GELU 사용
     """
     def __init__(self,
             attn_dim:int,
@@ -149,11 +161,12 @@ class TransformerEncoderBlock(nn.Module):
         Output:
             out: [B,2l,4d]
         """
+        ###### 1. MSA part
         ### Pre-LN
-        norm_z=self.norm_layers[0](z) # [B, 2l, 4d]
+        norm_z=self.norm_layers[0](z) # [B,2l,4d]
 
         ### PyTorch MultiheadAttention 기본 입력 shape=[seq_len,batch_size,attn_dim]
-        norm_z_t=norm_z.transpose(0,1) 
+        norm_z_t=norm_z.transpose(0,1) # [2l,B,4d] 
 
         ### Self-Attention: query = key = value = z
         attn_out,_=self.multi_head_attention(
@@ -163,9 +176,10 @@ class TransformerEncoderBlock(nn.Module):
         ) # [2l,B,4d]
         attn_out=attn_out.transpose(0,1)  # [B,2l,4d]
 
-        ### Residual
+        ### Residual connection
         out=z+self.dropout(attn_out)  
 
+        ###### 2. FFN part
         ### Pre-LN
         norm_out=self.norm_layers[1](out) # [B,2l,4d]
 
@@ -175,6 +189,6 @@ class TransformerEncoderBlock(nn.Module):
         hidden=self.dropout(hidden)
         hidden=self.linear_layers[1](hidden) # [B,2l,4d]
 
-        ### Residual
+        ### Residual connection
         out=out+self.dropout(hidden) # [B,2l,4d]
         return out

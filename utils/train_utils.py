@@ -71,17 +71,17 @@ class TrainUtils:
             dst_seq_edge:list,
             dst_seq_ts:list,
             dst_seq_co:list,
-            n_patch:int,
+            patch_size:int,
             device:torch.device
         ):
         """
         Padding Sequence in DyGFormer
 
         Step:
-            1. src_seq_node와 dst_seq_node, n_patch 정보로 max_seq_len 을 구한다.
+            1. src_seq_node와 dst_seq_node, patch_size 정보로 max_seq_len 을 구한다.
                 1-1. src_seq_node와 dst_seq_node에서 max_history_len 구한다.
-                1-2. max_history_len이 n_patch의 배수가 아니라면, 
-                    n_patch 배수가 되도록 증가시켜서 max_seq_len 구한다.
+                1-2. max_history_len이 patch_size의 배수가 아니라면, 
+                    patch_size 배수가 되도록 증가시켜서 max_seq_len 구한다.
 
             2. padded tensor로 변환 후 device로 보낸다.
                 2-1. 각 seq_node, seq_edge를 [B,max_seq_len] padded tensor로 변환
@@ -125,8 +125,8 @@ class TrainUtils:
         max_seq_len=max(1,max_history_len)
 
         # 2. n_patch 배수로 맞춤
-        if max_seq_len%n_patch!=0:
-            max_seq_len+=n_patch-(max_seq_len%n_patch)
+        if max_seq_len%patch_size!=0:
+            max_seq_len+=patch_size-(max_seq_len%patch_size)
         
         # 3. padded tensor 생성
         padded_src_seq_node=torch.zeros(
@@ -237,7 +237,7 @@ class TrainUtils:
             seq_edge_ft:torch.Tensor,
             seq_ts_ft:torch.Tensor,
             seq_co_ft:torch.Tensor,
-            n_patch:int
+            patch_size:int
         ):
         """
         Patching Technique in DyGFormer
@@ -247,7 +247,7 @@ class TrainUtils:
             seq_edge_ft: [B,max_seq_len,edge_dim]
             seq_ts_ft: [B,max_seq_len,time_dim]
             seq_co_ft: [B,max_seq_len,co_dim]
-            n_patch: int
+            patch_size: int
         Return:
             p=patch_size
             l=max_seq_len/patch_size
@@ -262,26 +262,26 @@ class TrainUtils:
         time_dim=seq_ts_ft.size(2)
         co_dim=seq_co_ft.size(2)
 
-        l=int(max_seq_len//n_patch)
+        l=int(max_seq_len//patch_size)
         M_n=seq_node_ft.reshape(
             batch_size,
             l,
-            n_patch*node_dim
+            patch_size*node_dim
         ) # [B,l,node_dim x p]
         M_e=seq_edge_ft.reshape(
             batch_size,
             l,
-            n_patch*edge_dim
+            patch_size*edge_dim
         ) # [B,l,edge_dim x p]
         M_t=seq_ts_ft.reshape(
             batch_size,
             l,
-            n_patch*time_dim
+            patch_size*time_dim
         ) # [B,l,time_dim x p]
         M_c=seq_co_ft.reshape(
             batch_size,
             l,
-            n_patch*co_dim 
+            patch_size*co_dim 
         ) # [B,l,co_dim x p]
         return {
             "M_n":M_n,
