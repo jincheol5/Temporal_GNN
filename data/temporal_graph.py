@@ -186,7 +186,8 @@ class TemporalGraph:
     
     def get_historical_seq(self,
             node:torch.Tensor,
-            event_t:torch.Tensor
+            event_t:torch.Tensor,
+            max_n_neighbor:int
         ):
         """
         Input:
@@ -238,6 +239,11 @@ class TemporalGraph:
             history_ts=(
                 cut_time-selected_times
             ).astype(np.float32)
+
+            if len(history_nodes)>max_n_neighbor:
+                history_nodes=history_nodes[-max_n_neighbor:]
+                history_edges=history_edges[-max_n_neighbor:]
+                history_ts=history_ts[-max_n_neighbor:]
 
             seq_node.append(history_nodes)
             seq_edge.append(history_edges)

@@ -16,7 +16,7 @@ class DyGFormer_Base(nn.Module):
             patch_size:int,
             graph:TemporalGraph,
             n_layer:int,
-            n_neighbor:int,
+            max_n_neighbor:int,
             n_head:int
         ):
         super().__init__()
@@ -30,7 +30,7 @@ class DyGFormer_Base(nn.Module):
         self.patch_size=patch_size
         self.graph=graph
         self.n_layer=n_layer
-        self.n_neighbor=n_neighbor
+        self.max_n_neighbor=max_n_neighbor
         self.n_head=n_head
 
         # set attn_dim
@@ -86,7 +86,7 @@ class DyGFormer_Link_Prediction(DyGFormer_Base):
             patch_size:int,
             graph:TemporalGraph,
             n_layer:int,
-            n_neighbor:int,
+            max_n_neighbor:int,
             n_head:int
         ):
         super(DyGFormer_Link_Prediction,self).__init__(
@@ -100,7 +100,7 @@ class DyGFormer_Link_Prediction(DyGFormer_Base):
             patch_size=patch_size,
             graph=graph,
             n_layer=n_layer,
-            n_neighbor=n_neighbor,
+            max_n_neighbor=max_n_neighbor,
             n_head=n_head
         )
         # decoder
@@ -147,14 +147,15 @@ class DyGFormer_Link_Prediction(DyGFormer_Base):
         src=torch.concat([pos_src,neg_src],dim=0) # [2B,]
         dst=torch.concat([pos_dst,neg_dst],dim=0) # [2B,]
         event_t=torch.concat([pos_event_t,neg_event_t],dim=0) # [2B,]
+        device=pos_src.device
 
         ### 1. get sequence data
-        src_seq=self.graph.get_historical_seq(node=src,event_t=event_t)
+        src_seq=self.graph.get_historical_seq(node=src,event_t=event_t,max_n_neighbor=self.max_n_neighbor)
         src_seq_node=src_seq["seq_node"]
         src_seq_edge=src_seq["seq_edge"]
         src_seq_ts=src_seq["seq_ts"]
 
-        dst_seq=self.graph.get_historical_seq(node=dst,event_t=event_t)
+        dst_seq=self.graph.get_historical_seq(node=dst,event_t=event_t,max_n_neighbor=self.max_n_neighbor)
         dst_seq_node=dst_seq["seq_node"]
         dst_seq_edge=dst_seq["seq_edge"]
         dst_seq_ts=dst_seq["seq_ts"]
@@ -176,7 +177,8 @@ class DyGFormer_Link_Prediction(DyGFormer_Base):
             dst_seq_edge=dst_seq_edge,
             dst_seq_ts=dst_seq_ts,
             dst_seq_co=dst_seq_co,
-            patch_size=self.patch_size
+            patch_size=self.patch_size,
+            device=device
         )
 
         src_seq_node=seq_tensor["src_seq_node"] # [2B,max_seq_len]
@@ -357,10 +359,10 @@ class DyGFormer_Link_Prediction(DyGFormer_Base):
             dim=0
         ) # [4B,4 x patch_dim]
         h=self.output_layer(h) # [4B,output_dim]
-        src_h,dst_h==torch.chunk(
+        src_h,dst_h=torch.chunk(
             h,
             chunks=2,
-            dim=1
+            dim=0
         )  # [2B,output_dim]
 
         ### 10. compute link logit

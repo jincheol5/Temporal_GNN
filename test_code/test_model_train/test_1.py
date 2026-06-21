@@ -2,7 +2,7 @@ import argparse
 from torch.utils.data import DataLoader
 from utils import DataUtils,TrainUtils,TemporalGraphDataset
 from data import TemporalGraph,Memory
-from model import TGAT_Link_Prediction,TGN_Link_Prediction
+from model import TGAT_Link_Prediction,TGN_Link_Prediction,DyGFormer_Link_Prediction
 from model_train import ModelTrainer
 
 """
@@ -82,6 +82,48 @@ def test_fn(**kwargs):
                 n_head=4,
                 msg_fn="concat",
                 aggr_fn="mean"
+            )
+            config={
+                "optimizer":kwargs["optimizer"],
+                "lr":kwargs["lr"],
+                "epoch":kwargs["epoch"]
+            }
+            ModelTrainer.train_link_prediction(
+                model=model,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                **config
+            )
+            print(f"Model Training END!")
+        
+        case 3:
+            """
+            Test. ModelTrainer.train_link_prediction
+                model: DyGFormer
+                task: link prediction
+            """
+            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
+            graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
+
+            train_df,val_df,_=TrainUtils.split_graph_df(df=df)
+            train_dataset=TemporalGraphDataset(df=train_df)
+            val_dataset=TemporalGraphDataset(df=val_df)
+            train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
+            val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
+
+            model=DyGFormer_Link_Prediction(
+                node_dim=4,
+                edge_dim=4,
+                latent_dim=4,
+                time_dim=4,
+                output_dim=4,
+                co_dim=4,
+                patch_dim=4,
+                patch_size=4,
+                graph=graph,
+                n_layer=2,
+                max_n_neighbor=10,
+                n_head=4
             )
             config={
                 "optimizer":kwargs["optimizer"],
