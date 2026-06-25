@@ -10,27 +10,27 @@ class TemporalGraph:
     """
     def __init__(self,
             graph_df:pd.DataFrame,
-            node_ft_df:pd.DataFrame=None,
-            edge_ft_df:pd.DataFrame=None,
+            node_ft_np:np.ndarray=None,
+            edge_ft_np:np.ndarray=None,
             node_dim:int=32,
             edge_dim:int=32
         ):
         """
         Input:
             graph_df: pd.DataFrame, sorted by event time
-            node_ft_df: pd.DataFrame (node_id,ft_n...), 1 부터 n_node 까지 연속적으로 오름차순 정렬
-            edge_ft_df: pd.DataFrame (edge_id,ft_e...), 1 부터 n_edge 까지 연속적으로 오름차순 정렬
+            node_ft_np: np.ndarray, (N+1,node_dim)
+            edge_ft_np: np.ndarray, (E+1,edge_dim)
             node_dim: int
             edge_dim: int
         """
         # set adj, adj_t
         self.adj=defaultdict(list)
         self.adj_t=defaultdict(list)
-        for event in graph_df.itertuples(index=False):
-            src=int(event.src)
-            dst=int(event.dst)
-            t=float(event.t)
-            edge_id=int(event.edge_id)
+        for event in graph_df.itertuples(index=False): # col: [u,i,ts,label,ids]
+            src=int(event.u)
+            dst=int(event.i)
+            t=float(event.ts)
+            edge_id=int(event.idx)
             # edge 양방향 저장
             self.adj[dst].append((src,edge_id))
             self.adj_t[dst].append(t)
@@ -38,118 +38,69 @@ class TemporalGraph:
             self.adj_t[src].append(t)
 
         # set n_node, n_edge
-        self.n_node=max(graph_df["src"].max(),graph_df["dst"].max())
-        self.n_edge=graph_df["edge_id"].max()
+        self.n_node=max(graph_df["u"].max(),graph_df["i"].max())
+        self.n_edge=graph_df["idx"].max()
 
         # set node_ft
-        if node_ft_df is None:
+        if node_ft_np is None:
             self.set_node_ft(node_dim=node_dim)
         else:
-            self.set_node_ft(node_ft_df=node_ft_df)
+            self.set_node_ft(node_ft_np=node_ft_np)
         
         # set edge_ft
-        if edge_ft_df is None:
+        if edge_ft_np is None:
             self.set_edge_ft(edge_dim=edge_dim)
         else:
-            self.set_edge_ft(edge_ft_df=edge_ft_df)
+            self.set_edge_ft(edge_ft_np=edge_ft_np)
 
     def set_node_ft(self,
-            node_ft_df:pd.DataFrame=None,
+            node_ft_np:np.ndarray=None,
             node_dim:int=32
         ):
         """
         Input:
-            node_ft_df: DataFrame (node_id,ft_n...), 1 부터 n_node 까지 연속적으로 오름차순 정렬
-            n_node: int
+            node_ft_np: 
+                np.ndarray of shape (n_node+1, node_dim) 또는 None.
+                0번째 행은 padding node feature (zero vector).
             node_dim: int
         """
-        if node_ft_df is None:
+        if node_ft_np is None:
             self.node_dim=node_dim
             self.node_ft=torch.zeros(
                 (self.n_node+1,node_dim),
                 dtype=torch.float32
             )
         else:
-            ft_col=node_ft_df.columns.drop("node_id")
-            self.node_dim=len(ft_col)
-            self.node_ft=torch.zeros(
-                (self.n_node+1,node_dim),
-                dtype=torch.float32
-            )
-            self.node_ft[1:]=torch.tensor(
-                node_ft_df[ft_col].to_numpy(),
+            self.node_dim=node_ft_np.shape[1]
+            self.node_ft=torch.as_tensor(
+                node_ft_np,
                 dtype=torch.float32
             )
 
     def set_edge_ft(self,
-            edge_ft_df:pd.DataFrame=None,
+            edge_ft_np:np.ndarray=None,
             edge_dim:int=32
         ):
         """
         Input:
-            edge_ft_df: DataFrame (edge_id,ft_e...), 1 부터 n_edge 까지 연속적으로 오름차순 정렬
-            n_edge: int
+            edge_ft_np: 
+                np.ndarray of shape (n_edge+1, edge_dim)
+                0번째 행은 padding edge의 feature(보통 zero vector).
+                None이면 zero feature 생성.
             edge_dim: int
         """
-        if edge_ft_df is None:
+        if edge_ft_np is None:
             self.edge_dim=edge_dim
             self.edge_ft=torch.zeros(
                 (self.n_edge+1,edge_dim),
                 dtype=torch.float32
             )
         else:
-            ft_col=edge_ft_df.columns.drop("edge_id")
-            self.edge_dim=len(ft_col)
-            self.edge_ft=torch.zeros(
-                (self.n_edge+1,edge_dim),
+            self.edge_dim=edge_ft_np.shape[1]
+            self.edge_ft=torch.as_tensor(
+                edge_ft_np,
                 dtype=torch.float32
             )
-            self.edge_ft[1:]=torch.tensor(
-                edge_ft_df[ft_col].to_numpy(),
-                dtype=torch.float32
-            )
-
-    def set_graph(self,
-            graph_df:pd.DataFrame,
-            node_ft_df:pd.DataFrame=None,
-            edge_ft_df:pd.DataFrame=None,
-            node_dim:int=32,
-            edge_dim:int=32
-        ):
-        """
-        Input:
-            graph_df: pd.DataFrame, sorted by event time
-            node_ft_df: pd.DataFrame (node_id,ft_n...), 1 부터 n_node 까지 연속적으로 오름차순 정렬
-            edge_ft_df: pd.DataFrame (edge_id,ft_e...), 1 부터 n_edge 까지 연속적으로 오름차순 정렬
-            node_dim: int
-            edge_dim: int
-        """
-        # set adj, adj_t
-        self.adj=defaultdict(list)
-        self.adj_t=defaultdict(list)
-        for event in graph_df.itertuples(index=False):
-            src=int(event.src)
-            dst=int(event.dst)
-            t=int(event.t)
-            edge_id=int(event.edge_id)
-            self.adj[dst].append((src,edge_id))
-            self.adj_t[dst].append(t)
-
-        # set n_node, n_edge
-        self.n_node=max(graph_df["src"].max(),graph_df["dst"].max())
-        self.n_edge=graph_df["edge_id"].max()
-
-        # set node_ft
-        if node_ft_df is None:
-            self.set_node_ft(node_dim=node_dim)
-        else:
-            self.set_node_ft(node_ft_df=node_ft_df)
-        
-        # set edge_ft
-        if edge_ft_df is None:
-            self.set_edge_ft(edge_dim=edge_dim)
-        else:
-            self.set_edge_ft(edge_ft_df=edge_ft_df)
 
     def get_num_node(self):
         return self.n_node
@@ -170,7 +121,7 @@ class TemporalGraph:
     def get_edge_ft(self,edge:torch.Tensor=None):
         """
         Input:
-            edge: [E,]
+            edge: [B,]
         Return:
             edge_ft
         """
@@ -186,7 +137,7 @@ class TemporalGraph:
         Input:
             tar: [B,]
             tar_t: [B,]
-            num_neighbor: int
+            n_neighbor: int
             seed: int
         Return:
             neighbor: [B,num_neighbor]

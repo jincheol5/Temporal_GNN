@@ -1,6 +1,13 @@
 import os
 import pandas as pd
+import numpy as np
 from typing import Literal
+
+"""
+To do list:
+- data_utils test code 
+- negative sampling for bipartite graph
+"""
 
 class DataUtils:
     base_path=os.path.join("..","data","temporal_graph")
@@ -16,46 +23,48 @@ class DataUtils:
             df: pd.DataFrame
         """
         dataset_path=os.path.join("dataset",dataset_name,f"{dataset_name}.txt") # ex
-        src_list,dst_list,t_list,edge_id_list=[],[],[],[]
+        u_list,i_list,ts_list,label_list,idx_list=[],[],[],[]
         with open(dataset_path) as f:
             for idx,line in enumerate(f):
                 e=line.strip().split()
-                src=int(e[0])
-                dst=int(e[1])
-                t=int(e[2])
-                src_list.append(src)
-                dst_list.append(dst)
-                t_list.append(t)
-                edge_id_list.append(idx)
+                u=int(e[0])
+                i=int(e[1])
+                ts=int(e[2])
+                u_list.append(u)
+                i_list.append(i)
+                ts_list.append(ts)
+                label_list.append(0)
+                idx_list.append(idx)
         df=pd.DataFrame(
             {
-                "src":src_list,
-                "dst":dst_list,
-                "t":t_list,
-                "edge_id":edge_id_list
+                "u":u_list,
+                "i":i_list,
+                "ts":ts_list,
+                "label":label_list,
+                "idx":idx_list
             }
         )
 
         # remove self-loop and reindex edge_id
-        df=df[df["src"]!=df["dst"]].reset_index(drop=True)
+        df=df[df["u"]!=df["i"]].reset_index(drop=True)
         
         # remapping node_id to 1 ~ N
-        unique_nodes=sorted(set(df["src"])|set(df["dst"]))
+        unique_nodes=sorted(set(df["u"])|set(df["i"]))
         node_mapping={
             old_id:new_id
             for new_id,old_id in enumerate(unique_nodes,start=1)
         }
-        df["src"]=df["src"].map(node_mapping)
-        df["dst"]=df["dst"].map(node_mapping)
+        df["u"]=df["u"].map(node_mapping)
+        df["i"]=df["i"].map(node_mapping)
         
         # sort by time
         df=df.sort_values(
-            by=["t","edge_id"],
+            by=["ts","idx"],
             kind="stable"
         ).reset_index(drop=True)
         
         # reindex edge_id
-        df["edge_id"]=range(1,len(df)+1)
+        df["idx"]=range(1,len(df)+1)
         return df
 
     @staticmethod
@@ -66,6 +75,15 @@ class DataUtils:
             ]
         ):
         """
+        Temporal graph dataset
+            - ml_dataset.csv
+                - col: u,i,ts,label,idx
+                - ts 기준 오름차순 정렬된 상태
+                - self-loop 제거 필요
+            - ml_dataset_node.npy, (N+1,node_dim)
+            - ml_dataset.npy, (E+1,edge_dim)
+                - self-loop 제거에 따라 edge_id remapping 필요
+
         Input:
             dataset_name: str
                 Homogeneous graph
@@ -75,10 +93,45 @@ class DataUtils:
                 - wikipedia
                 - reddit
         Return
-            df: pd.DataFrame
+            dict:
+                max_u: int, max user node id
+                max_i: int, max item node id
+                graph_df: pd.DataFrame
+                node_ft_np: np.array
+                edge_ft_np: np.array
         """
         dataset_path=os.path.join(DataUtils.base_path,dataset_name)
         graph_path=os.path.join(dataset_path,f"ml_{dataset_name}.csv")
         node_ft_path=os.path.join(dataset_path,f"ml_{dataset_name}_node.npy")
         edge_ft_path=os.path.join(dataset_path,f"ml_{dataset_name}.npy")
 
+        graph_df=pd.read_csv(graph_path,index_col=0)
+        node_ft_np=np.load(node_ft_path)
+        edge_ft_np=np.load(edge_ft_path)
+
+        ### remove self-loop and remapping edge_ft
+        mask=graph_df["u"]!=graph_df["i"]
+        new_graph_df=graph_df[mask].copy().reset_index(drop=True)
+
+        # 기존 idx 기준으로 edge feature 선택
+        old_edge_ids=new_graph_df["idx"].to_numpy()
+        new_edge_ft_np=edge_ft_np[old_edge_ids]
+
+        # padding edge feature 다시 추가
+        new_edge_ft_np=np.vstack(
+            [
+                np.zeros((1,edge_ft_np.shape[1])),
+                new_edge_ft_np
+            ]
+        )
+
+        # idx 재부여
+        new_graph_df["idx"]=np.arange(1,len(new_graph_df)+1)
+
+        return {
+            "max_u":new_graph_df["u"].max(),
+            "max_i":new_graph_df["i"].max(),
+            "graph_df":new_graph_df,
+            "node_ft_np":node_ft_np,
+            "edge_ft_np":new_edge_ft_np
+        }
