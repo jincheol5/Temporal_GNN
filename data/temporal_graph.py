@@ -9,57 +9,125 @@ class TemporalGraph:
     edge_id=0: padding edge
     """
     def __init__(self,
-            df:pd.DataFrame,
-            node_dim:int,
-            edge_dim:int
+            graph_df:pd.DataFrame,
+            node_ft_df:pd.DataFrame=None,
+            edge_ft_df:pd.DataFrame=None,
+            node_dim:int=32,
+            edge_dim:int=32
         ):
         """
         Input:
-            df: pd.DataFrame, sorted by event time
+            graph_df: pd.DataFrame, sorted by event time
+            node_ft_df: pd.DataFrame (node_id,ft_n...), 1 부터 n_node 까지 연속적으로 오름차순 정렬
+            edge_ft_df: pd.DataFrame (edge_id,ft_e...), 1 부터 n_edge 까지 연속적으로 오름차순 정렬
             node_dim: int
             edge_dim: int
         """
         # set adj, adj_t
         self.adj=defaultdict(list)
         self.adj_t=defaultdict(list)
-        for event in df.itertuples(index=False):
+        for event in graph_df.itertuples(index=False):
             src=int(event.src)
             dst=int(event.dst)
             t=float(event.t)
             edge_id=int(event.edge_id)
+            # edge 양방향 저장
             self.adj[dst].append((src,edge_id))
             self.adj_t[dst].append(t)
+            self.adj[src].append((dst,edge_id))
+            self.adj_t[src].append(t)
+
+        # set n_node, n_edge
+        self.n_node=max(graph_df["src"].max(),graph_df["dst"].max())
+        self.n_edge=graph_df["edge_id"].max()
 
         # set node_ft
-        self.node_dim=node_dim
-        self.n_node=max(df["src"].max(),df["dst"].max())
-        self.node_ft=torch.zeros(
-            (self.n_node+1,node_dim),
-            dtype=torch.float32
-        )
-
+        if node_ft_df is None:
+            self.set_node_ft(node_dim=node_dim)
+        else:
+            self.set_node_ft(node_ft_df=node_ft_df)
+        
         # set edge_ft
-        self.n_edge=df["edge_id"].max()
-        self.edge_ft=torch.zeros(
-            (self.n_edge+1,edge_dim),
-            dtype=torch.float32
-        )
+        if edge_ft_df is None:
+            self.set_edge_ft(edge_dim=edge_dim)
+        else:
+            self.set_edge_ft(edge_ft_df=edge_ft_df)
 
-    def set_graph(self,
-            df:pd.DataFrame,
-            node_dim:int,
-            edge_dim:int
+    def set_node_ft(self,
+            node_ft_df:pd.DataFrame=None,
+            node_dim:int=32
         ):
         """
         Input:
-            df: pd.DataFrame, sorted by event time
+            node_ft_df: DataFrame (node_id,ft_n...), 1 부터 n_node 까지 연속적으로 오름차순 정렬
+            n_node: int
+            node_dim: int
+        """
+        if node_ft_df is None:
+            self.node_dim=node_dim
+            self.node_ft=torch.zeros(
+                (self.n_node+1,node_dim),
+                dtype=torch.float32
+            )
+        else:
+            ft_col=node_ft_df.columns.drop("node_id")
+            self.node_dim=len(ft_col)
+            self.node_ft=torch.zeros(
+                (self.n_node+1,node_dim),
+                dtype=torch.float32
+            )
+            self.node_ft[1:]=torch.tensor(
+                node_ft_df[ft_col].to_numpy(),
+                dtype=torch.float32
+            )
+
+    def set_edge_ft(self,
+            edge_ft_df:pd.DataFrame=None,
+            edge_dim:int=32
+        ):
+        """
+        Input:
+            edge_ft_df: DataFrame (edge_id,ft_e...), 1 부터 n_edge 까지 연속적으로 오름차순 정렬
+            n_edge: int
+            edge_dim: int
+        """
+        if edge_ft_df is None:
+            self.edge_dim=edge_dim
+            self.edge_ft=torch.zeros(
+                (self.n_edge+1,edge_dim),
+                dtype=torch.float32
+            )
+        else:
+            ft_col=edge_ft_df.columns.drop("edge_id")
+            self.edge_dim=len(ft_col)
+            self.edge_ft=torch.zeros(
+                (self.n_edge+1,edge_dim),
+                dtype=torch.float32
+            )
+            self.edge_ft[1:]=torch.tensor(
+                edge_ft_df[ft_col].to_numpy(),
+                dtype=torch.float32
+            )
+
+    def set_graph(self,
+            graph_df:pd.DataFrame,
+            node_ft_df:pd.DataFrame=None,
+            edge_ft_df:pd.DataFrame=None,
+            node_dim:int=32,
+            edge_dim:int=32
+        ):
+        """
+        Input:
+            graph_df: pd.DataFrame, sorted by event time
+            node_ft_df: pd.DataFrame (node_id,ft_n...), 1 부터 n_node 까지 연속적으로 오름차순 정렬
+            edge_ft_df: pd.DataFrame (edge_id,ft_e...), 1 부터 n_edge 까지 연속적으로 오름차순 정렬
             node_dim: int
             edge_dim: int
         """
         # set adj, adj_t
         self.adj=defaultdict(list)
         self.adj_t=defaultdict(list)
-        for event in df.itertuples(index=False):
+        for event in graph_df.itertuples(index=False):
             src=int(event.src)
             dst=int(event.dst)
             t=int(event.t)
@@ -67,20 +135,21 @@ class TemporalGraph:
             self.adj[dst].append((src,edge_id))
             self.adj_t[dst].append(t)
 
-        # set node_ft
-        self.node_dim=node_dim
-        self.n_node=max(df["src"].max(),df["dst"].max())
-        self.node_ft=torch.zeros(
-            (self.n_node+1,node_dim),
-            dtype=torch.float32
-        )
+        # set n_node, n_edge
+        self.n_node=max(graph_df["src"].max(),graph_df["dst"].max())
+        self.n_edge=graph_df["edge_id"].max()
 
+        # set node_ft
+        if node_ft_df is None:
+            self.set_node_ft(node_dim=node_dim)
+        else:
+            self.set_node_ft(node_ft_df=node_ft_df)
+        
         # set edge_ft
-        self.n_edge=df["edge_id"].max()
-        self.edge_ft=torch.zeros(
-            (self.n_edge+1,edge_dim),
-            dtype=torch.float32
-        )
+        if edge_ft_df is None:
+            self.set_edge_ft(edge_dim=edge_dim)
+        else:
+            self.set_edge_ft(edge_ft_df=edge_ft_df)
 
     def get_num_node(self):
         return self.n_node

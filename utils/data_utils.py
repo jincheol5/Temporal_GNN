@@ -1,18 +1,21 @@
 import os
 import pandas as pd
+from typing import Literal
 
 class DataUtils:
-    base_path=os.path.join("..","data","temporal_gnn")
+    base_path=os.path.join("..","data","temporal_graph")
+
     @staticmethod
-    def preprocess_dataset_to_df(dataset_name:str):
+    def preprocess_ex_dataset_to_df(dataset_name:str):
         """
         Input:
             dataset_name: str
+                - simple
+                - CollegeMsg
         Return
             df: pd.DataFrame
         """
         dataset_path=os.path.join("dataset",dataset_name,f"{dataset_name}.txt") # ex
-
         src_list,dst_list,t_list,edge_id_list=[],[],[],[]
         with open(dataset_path) as f:
             for idx,line in enumerate(f):
@@ -54,3 +57,28 @@ class DataUtils:
         # reindex edge_id
         df["edge_id"]=range(1,len(df)+1)
         return df
+
+    @staticmethod
+    def preprocess_dataset_to_df(dataset_name:Literal[
+                "enron",
+                "wikipedia",
+                "reddit"
+            ]
+        ):
+        """
+        Input:
+            dataset_name: str
+                Homogeneous graph
+                - enron
+
+                Bipartite graph
+                - wikipedia
+                - reddit
+        Return
+            df: pd.DataFrame
+        """
+        dataset_path=os.path.join(DataUtils.base_path,dataset_name)
+        graph_path=os.path.join(dataset_path,f"ml_{dataset_name}.csv")
+        node_ft_path=os.path.join(dataset_path,f"ml_{dataset_name}_node.npy")
+        edge_ft_path=os.path.join(dataset_path,f"ml_{dataset_name}.npy")
+
