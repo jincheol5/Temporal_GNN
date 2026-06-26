@@ -52,7 +52,7 @@ class ModelTrainer:
                         dst=dst,
                         n_node=n_node,
                         bipartite=True,
-                        u_max=kwargs["u_max"]
+                        max_u=kwargs["max_u"]
                     ) # [B,]
                 else:
                     neg_dst=Sampling.random_negative_sampling(
@@ -145,7 +145,7 @@ class ModelTrainer:
                         n_node=n_node,
                         seed=kwargs["seed"],
                         bipartite=True,
-                        u_max=kwargs["u_max"]
+                        max_u=kwargs["max_u"]
                     ) # [B,]
 
                 pos_event={

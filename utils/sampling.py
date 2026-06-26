@@ -8,7 +8,7 @@ class Sampling:
         n_node:int,
         seed:int|None=None,
         bipartite:bool=False,
-        u_max:int=None
+        max_u:int=None
     ):
         """
         Train 시 seed=None
@@ -20,8 +20,7 @@ class Sampling:
             n_node: int, node_id = 1 ~ n_node
             seed: random seed
             bipartite: bool,
-            u_max: int
-            i_max: int
+            max_u: int
         Return:
             negative_dst: [B,]
         """
@@ -43,7 +42,7 @@ class Sampling:
 
         # sampling range 설정
         if bipartite:
-            low=u_max+1
+            low=max_u+1
         else:
             low=1
         high=n_node+1

@@ -35,13 +35,13 @@ def test_fn(**kwargs):
             src=torch.tensor([1,2,3],dtype=torch.long)
             dst=torch.tensor([11,12,13],dtype=torch.long)
             n_node=20
-            u_max=9
+            max_u=9
             neg_dst=Sampling.random_negative_sampling(
                 src=src,
                 dst=dst,
                 n_node=n_node,
                 bipartite=True,
-                u_max=u_max
+                max_u=max_u
             )
             print(f"positive edges:")
             for i in range(src.size(0)):
