@@ -8,7 +8,7 @@ class TemporalGraphDataset(Dataset):
         self.dst=torch.tensor(df["i"].values,dtype=torch.long)
         self.t=torch.tensor(df["ts"].values,dtype=torch.long)
         self.label=torch.tensor(df["label"].values,dtype=torch.float32)
-        self.edge=torch.tensor(df["idx"].values,dtype=torch.float32)
+        self.edge=torch.tensor(df["idx"].values,dtype=torch.long)
 
     def __len__(self):
         return len(self.src)
