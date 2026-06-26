@@ -5,7 +5,6 @@ from typing import Literal
 
 """
 To do list:
-- data_utils test code 
 - negative sampling for bipartite graph
 """
 
@@ -13,7 +12,7 @@ class DataUtils:
     base_path=os.path.join("..","data","temporal_graph")
 
     @staticmethod
-    def preprocess_ex_dataset_to_df(dataset_name:str):
+    def preprocess_ex_dataset(dataset_name:str):
         """
         Input:
             dataset_name: str
@@ -68,7 +67,7 @@ class DataUtils:
         return df
 
     @staticmethod
-    def preprocess_dataset_to_df(dataset_name:Literal[
+    def preprocess_dataset(dataset_name:Literal[
                 "enron",
                 "wikipedia",
                 "reddit"
@@ -94,12 +93,19 @@ class DataUtils:
                 - reddit
         Return
             dict:
+                graph_type: homogeneous or bipartite
                 max_u: int, max user node id
                 max_i: int, max item node id
                 graph_df: pd.DataFrame
                 node_ft_np: np.array
                 edge_ft_np: np.array
         """
+        match dataset_name:
+            case "enron":
+                graph_type="homogeneous"
+            case "wikipedia":
+                graph_type="bipartite"
+
         dataset_path=os.path.join(DataUtils.base_path,dataset_name)
         graph_path=os.path.join(dataset_path,f"ml_{dataset_name}.csv")
         node_ft_path=os.path.join(dataset_path,f"ml_{dataset_name}_node.npy")
@@ -113,6 +119,7 @@ class DataUtils:
         mask=graph_df["u"]!=graph_df["i"]
         new_graph_df=graph_df[mask].copy().reset_index(drop=True)
 
+        ### remapping edge id
         # 기존 idx 기준으로 edge feature 선택
         old_edge_ids=new_graph_df["idx"].to_numpy()
         new_edge_ft_np=edge_ft_np[old_edge_ids]
@@ -128,10 +135,30 @@ class DataUtils:
         # idx 재부여
         new_graph_df["idx"]=np.arange(1,len(new_graph_df)+1)
 
+        ### remapping node id
+        used_node_ids=np.sort(
+            pd.concat([new_graph_df["u"],new_graph_df["i"]])
+            .unique()
+            .astype(int)
+        )
+        node_id_map={
+            old_id:new_id
+            for new_id,old_id in enumerate(used_node_ids,start=1)
+        }
+        new_graph_df["u"]=new_graph_df["u"].map(node_id_map).astype(int)
+        new_graph_df["i"]=new_graph_df["i"].map(node_id_map).astype(int)
+        
+        # Remap node features with the same node order
+        new_node_ft_np=np.vstack([
+            np.zeros((1,node_ft_np.shape[1]),dtype=node_ft_np.dtype),
+            node_ft_np[used_node_ids]
+        ])
+
         return {
+            "graph_type":graph_type,
             "max_u":new_graph_df["u"].max(),
             "max_i":new_graph_df["i"].max(),
             "graph_df":new_graph_df,
-            "node_ft_np":node_ft_np,
+            "node_ft_np":new_node_ft_np,
             "edge_ft_np":new_edge_ft_np
         }
