@@ -34,7 +34,7 @@ class ModelTrainer:
         for epoch in tqdm(range(kwargs["epoch"]),desc=f"Model Training..."):
             model.train()
             batch_count=0
-            for src,dst,edge,event_t in tqdm(
+            for src,dst,event_t,_,edge in tqdm(
                     train_loader,
                     desc=f"Training epoch: {epoch+1}..."
                 ):
@@ -44,11 +44,22 @@ class ModelTrainer:
                 dst=dst.to(device) # [B,]
                 edge=edge.to(device) # [B,]
                 event_t=event_t.to(device) # [B,]
-                neg_dst=Sampling.random_negative_sampling(
-                    src=src,
-                    dst=dst,
-                    n_node=n_node
-                ) # [B,]
+
+                # negative sampling
+                if kwargs["bipartite"]:
+                    neg_dst=Sampling.random_negative_sampling(
+                        src=src,
+                        dst=dst,
+                        n_node=n_node,
+                        bipartite=True,
+                        u_max=kwargs["u_max"]
+                    ) # [B,]
+                else:
+                    neg_dst=Sampling.random_negative_sampling(
+                        src=src,
+                        dst=dst,
+                        n_node=n_node
+                    ) # [B,]
 
                 pos_event={
                     "src":src,
@@ -118,11 +129,24 @@ class ModelTrainer:
                 dst=dst.to(device) # [B,]
                 edge=edge.to(device) # [B,]
                 event_t=event_t.to(device) # [B,]
-                neg_dst=Sampling.random_negative_sampling(
-                    src=src,
-                    dst=dst,
-                    n_node=n_node
-                ) # [B,]
+
+                # negative sampling
+                if kwargs["bipartite"]:
+                    neg_dst=Sampling.random_negative_sampling(
+                        src=src,
+                        dst=dst,
+                        n_node=n_node,
+                        seed=kwargs["seed"]
+                    ) # [B,]
+                else:
+                    neg_dst=Sampling.random_negative_sampling(
+                        src=src,
+                        dst=dst,
+                        n_node=n_node,
+                        seed=kwargs["seed"],
+                        bipartite=True,
+                        u_max=kwargs["u_max"]
+                    ) # [B,]
 
                 pos_event={
                     "src":src,

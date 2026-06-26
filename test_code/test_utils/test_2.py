@@ -30,6 +30,29 @@ def test_fn(**kwargs):
         case 2:
             """
             Test. Sampling.random_negative_sampling
+            bipartite graph case
+            """
+            src=torch.tensor([1,2,3],dtype=torch.long)
+            dst=torch.tensor([11,12,13],dtype=torch.long)
+            n_node=20
+            u_max=9
+            neg_dst=Sampling.random_negative_sampling(
+                src=src,
+                dst=dst,
+                n_node=n_node,
+                bipartite=True,
+                u_max=u_max
+            )
+            print(f"positive edges:")
+            for i in range(src.size(0)):
+                print(f"{src[i]} -> {dst[i]} at time {11+i}")
+            print(f"\ncreated negative edges:")
+            for i in range(src.size(0)):
+                print(f"{src[i]} -> {neg_dst[i]} at time {11+i}")
+
+        case 3:
+            """
+            Test. Sampling.random_negative_sampling
             seed 고정 재현성 테스트
             """
             src=torch.tensor([1,2,3],dtype=torch.long)

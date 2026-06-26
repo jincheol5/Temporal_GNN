@@ -93,18 +93,20 @@ class DataUtils:
                 - reddit
         Return
             dict:
-                graph_type: homogeneous or bipartite
-                max_u: int, max user node id
-                max_i: int, max item node id
                 graph_df: pd.DataFrame
+                n_node: int
+                node_dim: int
+                edge_dim: int
                 node_ft_np: np.array
                 edge_ft_np: np.array
+                bipartite: homogeneous or bipartite
+                max_u: int, max user node id
         """
         match dataset_name:
             case "enron":
-                graph_type="homogeneous"
+                bipartite=False
             case "wikipedia":
-                graph_type="bipartite"
+                bipartite=True
 
         dataset_path=os.path.join(DataUtils.base_path,dataset_name)
         graph_path=os.path.join(dataset_path,f"ml_{dataset_name}.csv")
@@ -154,11 +156,18 @@ class DataUtils:
             node_ft_np[used_node_ids]
         ])
 
+        # get n_node, node_dim, edge_dim
+        n_node=max(new_graph_df["u"].max(),new_graph_df["i"].max())
+        node_dim=new_node_ft_np.shape[1]
+        edge_dim=new_edge_ft_np.shape[1]
+
         return {
-            "graph_type":graph_type,
-            "max_u":new_graph_df["u"].max(),
-            "max_i":new_graph_df["i"].max(),
             "graph_df":new_graph_df,
+            "n_node":n_node,
+            "node_dim":node_dim,
+            "edge_dim":edge_dim,
             "node_ft_np":new_node_ft_np,
-            "edge_ft_np":new_edge_ft_np
+            "edge_ft_np":new_edge_ft_np,
+            "bipartite":bipartite,
+            "max_u":new_graph_df["u"].max()
         }

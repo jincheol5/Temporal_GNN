@@ -7,6 +7,8 @@ class Sampling:
         dst:torch.Tensor,
         n_node:int,
         seed:int|None=None,
+        bipartite:bool=False,
+        u_max:int=None
     ):
         """
         Train 시 seed=None
@@ -17,6 +19,9 @@ class Sampling:
             dst: [B,]
             n_node: int, node_id = 1 ~ n_node
             seed: random seed
+            bipartite: bool,
+            u_max: int
+            i_max: int
         Return:
             negative_dst: [B,]
         """
@@ -36,12 +41,19 @@ class Sampling:
             dtype=dtype,
         )
 
+        # sampling range 설정
+        if bipartite:
+            low=u_max+1
+        else:
+            low=1
+        high=n_node+1
+
         used=set()
         for i in range(batch_size):
             while True:
                 neg=torch.randint(
-                    low=1,
-                    high=n_node + 1,
+                    low=low,
+                    high=high,
                     size=(1,),
                     generator=generator,
                     device=device,

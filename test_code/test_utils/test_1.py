@@ -25,12 +25,12 @@ def test_fn(**kwargs):
             raw_edge_ft_np=np.load(raw_edge_ft_np_path)
 
             dataset=DataUtils.preprocess_dataset(dataset_name=dataset_name)
-            graph_type=dataset["graph_type"]
+            n_node=dataset["n_node"]
+            bipartite=dataset["bipartite"]
             graph_df=dataset["graph_df"]
             node_ft_np=dataset["node_ft_np"]
             edge_ft_np=dataset["edge_ft_np"]
             max_u=dataset["max_u"]
-            max_i=dataset["max_i"]
 
             print(f"dataset name: {dataset_name}")
             print(f"<< raw dataset info >>")
@@ -40,17 +40,17 @@ def test_fn(**kwargs):
             print(f"edge_ft shape: {raw_edge_ft_np.shape}",end="\n\n")
 
             print(f"<< processed dataset info (remove self-loop)>>")
-            print(f"number of nodes (include padding node): {pd.concat([graph_df['u'],graph_df['i']]).nunique()+1}")
+            print(f"number of nodes (include padding node): {n_node+1}")
             print(f"number of edge events: {len(graph_df)}")
             print(f"node_ft shape: {node_ft_np.shape}")
             print(f"edge_ft shape: {edge_ft_np.shape}")
             
-            if graph_type=="homogeneous":
+            if not bipartite:
                 print(f"dataset is homogeneous graph.")
             else:
                 print(f"dataset is bipartite graph.")
                 print(f"range of u is 0 to {max_u}")
-                print(f"range of i is {max_u+1} to {max_i}")
+                print(f"range of i is {max_u+1} to {n_node}")
 
 if __name__=="__main__":
     """

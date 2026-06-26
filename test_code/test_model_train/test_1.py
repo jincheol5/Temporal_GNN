@@ -17,18 +17,33 @@ def test_fn(**kwargs):
                 model: TGAT
                 task: link prediction
             """
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
-            graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
+            dataset=DataUtils.preprocess_dataset(dataset_name=f"wikipedia")
+            graph_df=dataset["graph_df"]
+            n_node=dataset["n_node"]
+            node_dim=dataset["node_dim"]
+            edge_dim=dataset["edge_dim"]
+            node_ft_np=dataset["node_ft_np"]
+            edge_ft_np=dataset["edge_ft_np"]
+            bipartite=dataset["bipartite"]
+            max_u=dataset["max_u"]
 
-            train_df,val_df,_=TrainUtils.split_graph_df(df=df)
+            graph=TemporalGraph(
+                graph_df=graph_df,
+                node_ft_np=node_ft_np,
+                edge_ft_np=edge_ft_np,
+                node_dim=node_dim,
+                edge_dim=edge_dim
+            )
+
+            train_df,val_df,_=TrainUtils.split_graph_df(df=graph_df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
             train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
             val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
             
             model=TGAT_Link_Prediction(
-                node_dim=4,
-                edge_dim=4,
+                node_dim=node_dim,
+                edge_dim=edge_dim,
                 latent_dim=4,
                 time_dim=4,
                 output_dim=4,
@@ -40,7 +55,10 @@ def test_fn(**kwargs):
             config={
                 "optimizer":kwargs["optimizer"],
                 "lr":kwargs["lr"],
-                "epoch":kwargs["epoch"]
+                "epoch":kwargs["epoch"],
+                "seed":kwargs["seed"],
+                "bipartite":bipartite,
+                "max_u":max_u
             }
             ModelTrainer.train_link_prediction(
                 model=model,
@@ -56,20 +74,34 @@ def test_fn(**kwargs):
                 model: TGN
                 task: link prediction
             """
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
-            graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
-            n_node=graph.get_num_node()
+            dataset=DataUtils.preprocess_dataset(dataset_name=f"wikipedia")
+            graph_df=dataset["graph_df"]
+            n_node=dataset["n_node"]
+            node_dim=dataset["node_dim"]
+            edge_dim=dataset["edge_dim"]
+            node_ft_np=dataset["node_ft_np"]
+            edge_ft_np=dataset["edge_ft_np"]
+            bipartite=dataset["bipartite"]
+            max_u=dataset["max_u"]
+
+            graph=TemporalGraph(
+                df=graph_df,
+                node_ft_np=node_ft_np,
+                edge_ft_np=edge_ft_np,
+                node_dim=node_dim,
+                edge_dim=edge_dim
+            )
             memory=Memory(n_node=n_node,mem_dim=4)
 
-            train_df,val_df,_=TrainUtils.split_graph_df(df=df)
+            train_df,val_df,_=TrainUtils.split_graph_df(df=graph_df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
             train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
             val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
 
             model=TGN_Link_Prediction(
-                node_dim=4,
-                edge_dim=4,
+                node_dim=node_dim,
+                edge_dim=edge_dim,
                 mem_dim=4,
                 latent_dim=4,
                 msg_dim=4,
@@ -86,7 +118,10 @@ def test_fn(**kwargs):
             config={
                 "optimizer":kwargs["optimizer"],
                 "lr":kwargs["lr"],
-                "epoch":kwargs["epoch"]
+                "epoch":kwargs["epoch"],
+                "seed":kwargs["seed"],
+                "bipartite":bipartite,
+                "max_u":max_u
             }
             ModelTrainer.train_link_prediction(
                 model=model,
@@ -102,18 +137,33 @@ def test_fn(**kwargs):
                 model: DyGFormer
                 task: link prediction
             """
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
-            graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
+            dataset=DataUtils.preprocess_dataset(dataset_name=f"wikipedia")
+            graph_df=dataset["graph_df"]
+            n_node=dataset["n_node"]
+            node_dim=dataset["node_dim"]
+            edge_dim=dataset["edge_dim"]
+            node_ft_np=dataset["node_ft_np"]
+            edge_ft_np=dataset["edge_ft_np"]
+            bipartite=dataset["bipartite"]
+            max_u=dataset["max_u"]
 
-            train_df,val_df,_=TrainUtils.split_graph_df(df=df)
+            graph=TemporalGraph(
+                df=graph_df,
+                node_ft_np=node_ft_np,
+                edge_ft_np=edge_ft_np,
+                node_dim=node_dim,
+                edge_dim=edge_dim
+            )
+
+            train_df,val_df,_=TrainUtils.split_graph_df(df=graph_df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
             train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
             val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
 
             model=DyGFormer_Link_Prediction(
-                node_dim=4,
-                edge_dim=4,
+                node_dim=node_dim,
+                edge_dim=edge_dim,
                 latent_dim=4,
                 time_dim=4,
                 output_dim=4,
@@ -128,7 +178,10 @@ def test_fn(**kwargs):
             config={
                 "optimizer":kwargs["optimizer"],
                 "lr":kwargs["lr"],
-                "epoch":kwargs["epoch"]
+                "epoch":kwargs["epoch"],
+                "seed":kwargs["seed"],
+                "bipartite":bipartite,
+                "max_u":max_u
             }
             ModelTrainer.train_link_prediction(
                 model=model,
@@ -146,6 +199,7 @@ if __name__=="__main__":
     parser.add_argument("--test_num",type=int,default=1)
     parser.add_argument("--optimizer",type=str,default=f"adam")
     parser.add_argument("--lr",type=float,default=0.0005)
+    parser.add_argument("--seed",type=int,default=1)
     parser.add_argument("--epoch",type=int,default=1)
 
     args=parser.parse_args()
@@ -153,6 +207,7 @@ if __name__=="__main__":
         'test_num':args.test_num,
         'optimizer':args.optimizer,
         'lr':args.lr,
+        'seed':args.seed,
         'epoch':args.epoch
     }
     test_fn(**test_config)
