@@ -85,7 +85,7 @@ def test_fn(**kwargs):
             max_u=dataset["max_u"]
 
             graph=TemporalGraph(
-                df=graph_df,
+                graph_df=graph_df,
                 node_ft_np=node_ft_np,
                 edge_ft_np=edge_ft_np,
                 node_dim=node_dim,
@@ -148,7 +148,7 @@ def test_fn(**kwargs):
             max_u=dataset["max_u"]
 
             graph=TemporalGraph(
-                df=graph_df,
+                graph_df=graph_df,
                 node_ft_np=node_ft_np,
                 edge_ft_np=edge_ft_np,
                 node_dim=node_dim,
