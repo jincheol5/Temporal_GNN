@@ -1,8 +1,9 @@
 import math
 import torch
 import torch.nn as nn
-from data import TemporalGraph,Memory
+from graph import TemporalGraph
 from .time_encoder import TimeEncoder
+from .mem_module import Memory
 from .aggr_module import TemporalGraphAttn
 
 class EmbeddingModule(nn.Module):
@@ -42,7 +43,7 @@ class IdentityEmbedding(EmbeddingModule):
         self.memory=memory
         self.mem_dim=mem_dim
     def compute_embedding(self,tar):
-        tar_ft=self.memory.get_memory(node=tar) # [B,mem_dim]
+        tar_ft=self.memory.get_mem_ft(node=tar) # [B,mem_dim]
         return tar_ft
 
 class TimeProjectionEmbedding(EmbeddingModule):
@@ -77,7 +78,7 @@ class TimeProjectionEmbedding(EmbeddingModule):
         self.embedding_layer=NormalLinear(in_features=1,out_features=self.mem_dim)
 
     def compute_embedding(self,tar,tar_t):
-        tar_mem=self.memory.get_memory(node=tar) # [B,mem_dim]
+        tar_mem=self.memory.get_mem_ft(node=tar) # [B,mem_dim]
         tar_ts=self.memory.get_node_timespan(
             node=tar,
             event_t=tar_t
@@ -148,7 +149,7 @@ class GraphEmbeddingModule(EmbeddingModule):
         """
         tar_ft=self.graph.get_node_ft(node=tar) # [n_tar,node_dim]
         if self.use_memory:
-            tar_mem=self.memory.get_memory(node=tar)
+            tar_mem=self.memory.get_mem_ft(node=tar)
             tar_ft=torch.concat(
                 [tar_mem,tar_ft],
                 dim=-1

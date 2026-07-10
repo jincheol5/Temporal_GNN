@@ -1,8 +1,8 @@
 import argparse
 import torch
 from utils import DataUtils
-from data import TemporalGraph,Memory
-from module import TimeEncoder,IdentityEmbedding,TimeProjectionEmbedding,GraphSumEmbedding,GraphAttnEmbedding
+from graph import TemporalGraph
+from module import TimeEncoder,Memory,IdentityEmbedding,TimeProjectionEmbedding,GraphSumEmbedding,GraphAttnEmbedding
 
 """
 << Test >> 
@@ -20,7 +20,7 @@ def test_fn(**kwargs):
             mem_dim=4
             latent_dim=4
             output_dim=4
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"simple")
             graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
@@ -50,7 +50,7 @@ def test_fn(**kwargs):
             mem_dim=4
             latent_dim=4
             output_dim=4
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"simple")
             graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
@@ -82,7 +82,7 @@ def test_fn(**kwargs):
             latent_dim=4
             output_dim=4
             
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"simple")
             graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()
@@ -126,7 +126,7 @@ def test_fn(**kwargs):
             latent_dim=4
             output_dim=4
             
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"simple")
             graph=TemporalGraph(df=df,node_dim=node_dim,edge_dim=edge_dim)
 
             n_node=graph.get_num_node()

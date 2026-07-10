@@ -1,7 +1,7 @@
 import argparse
 import torch
 from torch.utils.data import DataLoader
-from data import TemporalGraph
+from graph import TemporalGraph
 from utils import DataUtils,TemporalGraphDataset,TrainUtils
 
 """
@@ -14,7 +14,7 @@ def test_fn(**kwargs):
             """
             Test. train_utils.TemporalGraphDataset
             """
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"CollegeMsg")
             dataset=TemporalGraphDataset(df=df)
             for idx in range(5):
                 src,dst,edge,event_t=dataset.__getitem__(idx=idx)
@@ -24,7 +24,7 @@ def test_fn(**kwargs):
             """
             Test. train_utils.TemporalGraphDataset using PyTorch DataLoader
             """
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"CollegeMsg")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"CollegeMsg")
             dataset=TemporalGraphDataset(df=df)
             loader=DataLoader(
                 dataset=dataset,
@@ -53,7 +53,7 @@ def test_fn(**kwargs):
             """
             Test. train_utils.TrainUtils.get_padded_seq
             """
-            df=DataUtils.preprocess_dataset_to_df(dataset_name=f"simple")
+            df=DataUtils.preprocess_ex_dataset(dataset_name=f"simple")
             graph=TemporalGraph(df=df,node_dim=4,edge_dim=4)
 
             src=torch.tensor([2,3,4],dtype=torch.long)

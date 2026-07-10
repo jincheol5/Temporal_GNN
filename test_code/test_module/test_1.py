@@ -1,6 +1,5 @@
 import argparse
 import torch
-from data import Memory
 from module import TimeEncoder,GRUMemoryUpdater
 
 """

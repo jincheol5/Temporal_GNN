@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from data import TemporalGraph
+from graph import TemporalGraph
 from utils import TrainUtils
 from module import TimeEncoder,TransformerEncoderBlock
 

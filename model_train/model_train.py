@@ -90,7 +90,7 @@ class ModelTrainer:
                 ### Loss
                 criterion=nn.BCEWithLogitsLoss()
                 loss=criterion(pred_edge_logit,edge_label)
-                print(f"{epoch+1} epoch {batch_count} batch_count loss: {loss.item()}")
+                # print(f"{epoch+1} epoch {batch_count} batch_count loss: {loss.item()}")
 
                 ### backward
                 optimizer.zero_grad()
@@ -100,7 +100,7 @@ class ModelTrainer:
             """
             validate model
             """
-            ModelTrainer.evaluate_link_prediction(model=model,data_loader=val_loader)
+            ModelTrainer.evaluate_link_prediction(model=model,data_loader=val_loader,**kwargs)
         return model
 
     @staticmethod
@@ -121,7 +121,7 @@ class ModelTrainer:
         n_node=model.graph.get_num_node()
         acc_list=[]
         with torch.no_grad():
-            for src,dst,edge,event_t in tqdm(
+            for src,dst,event_t,_,edge in tqdm(
                     data_loader,
                     desc=f"Evaluating..."
                 ):

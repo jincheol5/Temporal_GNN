@@ -1,7 +1,7 @@
 import argparse
 from torch.utils.data import DataLoader
 from utils import DataUtils,TrainUtils,TemporalGraphDataset
-from data import TemporalGraph,Memory
+from graph import TemporalGraph
 from model import TGAT_Link_Prediction,TGN_Link_Prediction,DyGFormer_Link_Prediction
 from model_train import ModelTrainer
 
@@ -19,7 +19,6 @@ def test_fn(**kwargs):
             """
             dataset=DataUtils.preprocess_dataset(dataset_name=f"wikipedia")
             graph_df=dataset["graph_df"]
-            n_node=dataset["n_node"]
             node_dim=dataset["node_dim"]
             edge_dim=dataset["edge_dim"]
             node_ft_np=dataset["node_ft_np"]
@@ -35,11 +34,13 @@ def test_fn(**kwargs):
                 edge_dim=edge_dim
             )
 
-            train_df,val_df,_=TrainUtils.split_graph_df(df=graph_df)
+            train_df,val_df,test_df=TrainUtils.split_graph_df(df=graph_df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
+            test_dataset=TemporalGraphDataset(df=test_df)
             train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
             val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
+            test_loader=DataLoader(dataset=test_dataset,batch_size=200,shuffle=False)
             
             model=TGAT_Link_Prediction(
                 node_dim=node_dim,
@@ -66,7 +67,11 @@ def test_fn(**kwargs):
                 val_loader=val_loader,
                 **config
             )
-            print(f"Model Training END!")
+            ModelTrainer.evaluate_link_prediction(
+                model=model,
+                data_loader=test_loader,
+                **config
+            )
 
         case 2:
             """
@@ -76,7 +81,6 @@ def test_fn(**kwargs):
             """
             dataset=DataUtils.preprocess_dataset(dataset_name=f"wikipedia")
             graph_df=dataset["graph_df"]
-            n_node=dataset["n_node"]
             node_dim=dataset["node_dim"]
             edge_dim=dataset["edge_dim"]
             node_ft_np=dataset["node_ft_np"]
@@ -91,13 +95,14 @@ def test_fn(**kwargs):
                 node_dim=node_dim,
                 edge_dim=edge_dim
             )
-            memory=Memory(n_node=n_node,mem_dim=4)
 
-            train_df,val_df,_=TrainUtils.split_graph_df(df=graph_df)
+            train_df,val_df,test_df=TrainUtils.split_graph_df(df=graph_df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
+            test_dataset=TemporalGraphDataset(df=test_df)
             train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
             val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
+            test_loader=DataLoader(dataset=test_dataset,batch_size=200,shuffle=False)
 
             model=TGN_Link_Prediction(
                 node_dim=node_dim,
@@ -108,7 +113,6 @@ def test_fn(**kwargs):
                 time_dim=4,
                 output_dim=4,
                 graph=graph,
-                memory=memory,
                 n_layer=2,
                 n_neighbor=5,
                 n_head=4,
@@ -129,7 +133,11 @@ def test_fn(**kwargs):
                 val_loader=val_loader,
                 **config
             )
-            print(f"Model Training END!")
+            ModelTrainer.evaluate_link_prediction(
+                model=model,
+                data_loader=test_loader,
+                **config
+            )
         
         case 3:
             """
@@ -139,7 +147,6 @@ def test_fn(**kwargs):
             """
             dataset=DataUtils.preprocess_dataset(dataset_name=f"wikipedia")
             graph_df=dataset["graph_df"]
-            n_node=dataset["n_node"]
             node_dim=dataset["node_dim"]
             edge_dim=dataset["edge_dim"]
             node_ft_np=dataset["node_ft_np"]
@@ -155,11 +162,13 @@ def test_fn(**kwargs):
                 edge_dim=edge_dim
             )
 
-            train_df,val_df,_=TrainUtils.split_graph_df(df=graph_df)
+            train_df,val_df,test_df=TrainUtils.split_graph_df(df=graph_df)
             train_dataset=TemporalGraphDataset(df=train_df)
             val_dataset=TemporalGraphDataset(df=val_df)
+            test_dataset=TemporalGraphDataset(df=test_df)
             train_loader=DataLoader(dataset=train_dataset,batch_size=200,shuffle=False)
             val_loader=DataLoader(dataset=val_dataset,batch_size=200,shuffle=False)
+            test_loader=DataLoader(dataset=test_dataset,batch_size=200,shuffle=False)
 
             model=DyGFormer_Link_Prediction(
                 node_dim=node_dim,
@@ -183,13 +192,17 @@ def test_fn(**kwargs):
                 "bipartite":bipartite,
                 "max_u":max_u
             }
-            ModelTrainer.train_link_prediction(
+            model=ModelTrainer.train_link_prediction(
                 model=model,
                 train_loader=train_loader,
                 val_loader=val_loader,
                 **config
             )
-            print(f"Model Training END!")
+            ModelTrainer.evaluate_link_prediction(
+                model=model,
+                data_loader=test_loader,
+                **config
+            )
 
 if __name__=="__main__":
     """

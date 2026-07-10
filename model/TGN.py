@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from typing_extensions import Literal
-from data import TemporalGraph,Memory
-from module import TimeEncoder,GraphAttnEmbedding,MemoryUpdater
+from graph import TemporalGraph
+from module import TimeEncoder,Memory,GraphAttnEmbedding,MemoryUpdater
 
 class TGN_Base(nn.Module):
     def __init__(self,
@@ -14,7 +14,6 @@ class TGN_Base(nn.Module):
             time_dim:int,
             output_dim:int,
             graph:TemporalGraph,
-            memory:Memory,
             n_layer:int,
             n_neighbor:int,
             n_head:int,
@@ -29,13 +28,18 @@ class TGN_Base(nn.Module):
         self.msg_dim=msg_dim
         self.time_dim=time_dim
         self.output_dim=output_dim
-        self.graph=graph
-        self.memory=memory
         self.n_layer=n_layer
         self.n_neighbor=n_neighbor
         self.n_head=n_head
         self.msg_fn=msg_fn
         self.aggr_fn=aggr_fn
+        
+        # graph
+        self.graph=graph
+
+        # memory
+        self.n_node=self.graph.get_num_node()
+        self.memory=Memory(n_node=self.n_node,mem_dim=self.mem_dim)
 
         # time encoder
         self.time_encoder=TimeEncoder(time_dim=time_dim)
@@ -102,7 +106,6 @@ class TGN_Link_Prediction(TGN_Base):
             time_dim:int,
             output_dim:int,
             graph:TemporalGraph,
-            memory:Memory,
             n_layer:int,
             n_neighbor:int,
             n_head:int,
@@ -118,7 +121,6 @@ class TGN_Link_Prediction(TGN_Base):
             time_dim=time_dim,
             output_dim=output_dim,
             graph=graph,
-            memory=memory,
             n_layer=n_layer,
             n_neighbor=n_neighbor,
             n_head=n_head,
@@ -202,6 +204,9 @@ class TGN_Link_Prediction(TGN_Base):
             tar_t=tar_t,
             n_layer=self.n_layer
         ) # [4B,output_dim]
+
+        # detach memory
+        self.memory.detach_memory_state()
 
         # split to src,dst
         src_ft=tar_ft[:batch_size]
