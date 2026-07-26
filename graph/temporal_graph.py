@@ -10,22 +10,25 @@ class TemporalGraph:
     """
     def __init__(self,
             graph_df:pd.DataFrame,
-            node_ft_np:np.ndarray=None,
-            edge_ft_np:np.ndarray=None,
+            node_ft:np.ndarray=None,
+            edge_ft:np.ndarray=None,
             node_dim:int=32,
-            edge_dim:int=32
+            edge_dim:int=32,
+            bipartite:bool=False
         ):
         """
         Input:
             graph_df: pd.DataFrame, sorted by event time
-            node_ft_np: np.ndarray, (N+1,node_dim)
-            edge_ft_np: np.ndarray, (E+1,edge_dim)
+            node_ft: np.ndarray, (N+1,node_dim)
+            edge_ft: np.ndarray, (E+1,edge_dim)
             node_dim: int
             edge_dim: int
         """
-        # set adj, adj_t
+        # set graph_df, adj, adj_t, edge_events
+        self.graph_df=graph_df
         self.adj=defaultdict(list)
         self.adj_t=defaultdict(list)
+        self.edge_events=[]
         for event in graph_df.itertuples(index=False): # col: [u,i,ts,label,ids]
             src=int(event.u)
             dst=int(event.i)
@@ -36,25 +39,30 @@ class TemporalGraph:
             self.adj_t[dst].append(t)
             self.adj[src].append((dst,edge_id))
             self.adj_t[src].append(t)
+            # edge event 저장
+            self.edge_events[(src,dst,t,edge_id)]
 
         # set n_node, n_edge
         self.n_node=max(graph_df["u"].max(),graph_df["i"].max())
         self.n_edge=graph_df["idx"].max()
+        self.bipartite=bipartite
+        self.max_u=graph_df["u"].max()
+        self.max_t=graph_df["ts"].max()
 
         # set node_ft
-        if node_ft_np is None:
+        if node_ft is None:
             self.set_node_ft(node_dim=node_dim)
         else:
-            self.set_node_ft(node_ft_np=node_ft_np)
+            self.set_node_ft(node_ft_np=node_ft)
         
         # set edge_ft
-        if edge_ft_np is None:
+        if edge_ft is None:
             self.set_edge_ft(edge_dim=edge_dim)
         else:
-            self.set_edge_ft(edge_ft_np=edge_ft_np)
+            self.set_edge_ft(edge_ft=edge_ft)
 
     def set_node_ft(self,
-            node_ft_np:np.ndarray=None,
+            node_ft:np.ndarray=None,
             node_dim:int=32
         ):
         """
@@ -64,21 +72,21 @@ class TemporalGraph:
                 0번째 행은 padding node feature (zero vector).
             node_dim: int
         """
-        if node_ft_np is None:
+        if node_ft is None:
             self.node_dim=node_dim
             self.node_ft=torch.zeros(
                 (self.n_node+1,node_dim),
                 dtype=torch.float32
             )
         else:
-            self.node_dim=node_ft_np.shape[1]
+            self.node_dim=node_ft.shape[1]
             self.node_ft=torch.as_tensor(
-                node_ft_np,
+                node_ft,
                 dtype=torch.float32
             )
 
     def set_edge_ft(self,
-            edge_ft_np:np.ndarray=None,
+            edge_ft:np.ndarray=None,
             edge_dim:int=32
         ):
         """
@@ -89,16 +97,16 @@ class TemporalGraph:
                 None이면 zero feature 생성.
             edge_dim: int
         """
-        if edge_ft_np is None:
+        if edge_ft is None:
             self.edge_dim=edge_dim
             self.edge_ft=torch.zeros(
                 (self.n_edge+1,edge_dim),
                 dtype=torch.float32
             )
         else:
-            self.edge_dim=edge_ft_np.shape[1]
+            self.edge_dim=edge_ft.shape[1]
             self.edge_ft=torch.as_tensor(
-                edge_ft_np,
+                edge_ft,
                 dtype=torch.float32
             )
 
