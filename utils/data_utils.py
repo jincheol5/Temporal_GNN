@@ -11,6 +11,90 @@ To do list:
 class DataUtils:
     base_path=os.path.join("..","data","temporal_graph")
 
+
+    @staticmethod
+    def _preprocess_zenodo_dataset(
+            dataset_name:Literal[
+                    "enron",
+                    "wikipedia",
+                    "reddit"
+                ]
+        ):
+        """
+        timestamp: UTC unix timestamp day 단위로 변환
+        """
+        graph_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"ml_{dataset_name}.csv")
+        node_ft_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"ml_{dataset_name}_node.npy")
+        edge_ft_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"ml_{dataset_name}.npy")
+
+        graph_df=pd.read_csv(
+            graph_path,
+            index_col=0,
+        )[["u","i","ts","idx"]].rename(
+            columns={"ts": "t"}
+        )
+
+        node_ft=np.load(node_ft_path)
+        edge_ft=np.load(edge_ft_path)
+
+        # timestamp(초)를 Unix timestamp의 일(day) 단위 정수로 변환
+        graph_df["t"]=(
+            pd.to_numeric(graph_df["t"],errors="raise")
+            .floordiv(24*60*60)
+            .astype(np.int64)
+        )
+
+        # 최초 event 시각을 0으로 맞춘 상대 Unix timestamp(day)로 변환
+        min_event_time=graph_df["t"].min()
+        graph_df["t"]=(graph_df["t"]-min_event_time).astype(np.int64)
+
+        ### remove self-loop, 동일한 시각의 동일한 방향 edge(u -> i)는 하나만 유지
+        graph_df=(
+            graph_df[graph_df["u"]!=graph_df["i"]]
+            .drop_duplicates(subset=["u","i","t"],keep="first")
+            .reset_index(drop=True)
+        )
+
+        ### remap edge index
+        edge_ft=np.vstack([
+            np.zeros(
+                (1,edge_ft.shape[1]),
+                dtype=edge_ft.dtype
+            ),
+            edge_ft[graph_df["idx"].to_numpy()]
+        ])
+        graph_df["idx"]=np.arange(1,len(graph_df)+1)
+
+        # remap node id
+        used_nodes=np.sort(np.unique(graph_df[["u","i"]].to_numpy()))
+        node_map={
+            old_id:new_id
+            for new_id,old_id
+            in enumerate(used_nodes,start=1)
+        }
+        graph_df[["u","i"]]=(
+            graph_df[["u","i"]]
+            .replace(node_map)
+            .astype(int)
+        )
+        node_ft=np.vstack([
+            np.zeros(
+                (1,node_ft.shape[1]),
+                dtype=node_ft.dtype
+            ),
+            node_ft[used_nodes]
+        ])
+
+        return {
+            "graph_df": graph_df,
+            "n_node": len(used_nodes),
+            "max_u": graph_df["u"].max(),
+            "node_dim": node_ft.shape[1],
+            "edge_dim": edge_ft.shape[1],
+            "node_ft": node_ft,
+            "edge_ft": edge_ft
+        }
+
     @staticmethod
     def preprocess_ex_dataset(dataset_name:str):
         """
