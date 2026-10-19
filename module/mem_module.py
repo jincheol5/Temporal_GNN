@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Literal
+from collections import defaultdict
 from graph import GNN_Graph
 from .time_module import TimeEncoder
 
@@ -10,9 +11,11 @@ class Memory(nn.Module):
             mem_dim:int=32
         ):
         """
-        mem_dim: memory vector dim
-        mem_vec: memory vector
-        mem_t: last update time of memory 
+        set mem_ft and mem_t to zero vectors
+            - mem_vec: memory vector
+            - mem_t: last update time of memory 
+        set raw_message_store
+            - raw_msg_store: 
         """
         super().__init__()
         self.n_node=n_node
@@ -25,8 +28,9 @@ class Memory(nn.Module):
             "mem_t",
             torch.zeros(self.n_node+1),
         )
+        self.raw_msg_store=defaultdict(list)
         self.init_memory_state()
-    
+
     def init_memory_state(self):
         """
         initialize all the mem_ft and mem_t to zero vectors, which should be called at the start of each epoch
@@ -34,33 +38,48 @@ class Memory(nn.Module):
         self.mem_vec.data.zero_()
         self.mem_t.data.zero_()
 
-    def memory_detach(self):
+    def clean_raw_msg_store(self,node:torch.Tensor|None=None):
+        if node is None:
+            self.raw_msg_store=defaultdict(list)
+        else:
+            for node_id in node.detach().cpu().tolist():
+                self.raw_msg_store.pop(node_id,None)
+
+    def detach_memory(self):
         self.mem_vec.detach_()
         self.mem_t.detach_()
 
-    def get_mem_vec(self,
-            node:torch.Tensor|None=None
+    def detach_raw_msg_store(self):
+        for node,messages in self.raw_msg_store.items():
+            self.raw_msg_store[node]=[
+                (message.detach(),timestamp.detach())
+                for message,timestamp in messages
+            ]
+
+    def store_raw_msg(self,
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor,
+            src_raw_msg:torch.Tensor,
+            dst_raw_msg:torch.Tensor
         ):
-        """
-        Input:
-            node: [N,]
-        Output:
-            mem_vec: [N,mem_dim]
-        """
+        src_ids=src.detach().cpu().tolist()
+        dst_ids=dst.detach().cpu().tolist()
+        for idx,(src_id,dst_id) in enumerate(zip(src_ids,dst_ids)):
+            self.raw_msg_store[src_id].append(
+                (src_raw_msg[idx].clone(),event_t[idx].clone())
+            )
+            self.raw_msg_store[dst_id].append(
+                (dst_raw_msg[idx].clone(),event_t[idx].clone())
+            )
+
+    def get_mem_vec(self,node:torch.Tensor|None=None):
         if node is None:
             return self.mem_vec
         else:
             return self.mem_vec[node]
 
-    def get_mem_t(self,
-            node:torch.Tensor|None=None
-        ):
-        """
-        Input:
-            node: [N,]
-        Output:
-            mem_vec: [N,]
-        """
+    def get_mem_t(self,node:torch.Tensor|None=None):
         if node is None:
             return self.mem_t
         else:
@@ -70,16 +89,7 @@ class Memory(nn.Module):
             node:torch.Tensor,
             event_t:torch.Tensor
         ):
-        """
-        Input:
-            node: [N,]
-            event_t: [N,]
-        Return:
-            node_ts: [N,1]
-        """
-        node_ts=torch.abs(
-            event_t-self.mem_t[node]
-        )
+        node_ts=torch.abs(event_t-self.mem_t[node])
         return node_ts.unsqueeze(-1) # [N,1]
 
     def update_memory_state(self,
@@ -89,13 +99,10 @@ class Memory(nn.Module):
         ):
         """
         Batch 내의 N개의 node들의 새로운 mem_vec와 mem_t 업데이트 
-        Input:
-            node: [N,]
-            mem_vec: [N,mem_dim]
-            event_t: [N,]
         """
         self.mem_vec[node]=mem_vec
         self.mem_t[node]=mem_t
+        self.clean_raw_msg_store(node=node)
 
 class MemoryUpdater(nn.Module):
     def __init__(self,
@@ -118,18 +125,7 @@ class MemoryUpdater(nn.Module):
         # module
         self.time_encoder=time_encoder
         if msg_fn=="mlp":
-            self.src_mlp=nn.Sequential(
-                nn.Linear(
-                    in_features=mem_dim+mem_dim+time_dim+edge_dim,
-                    out_features=msg_dim
-                ),
-                nn.ReLU(),
-                nn.Linear(
-                    in_features=msg_dim,
-                    out_features=msg_dim
-                )
-            )
-            self.dst_mlp=nn.Sequential(
+            self.msg_mlp=nn.Sequential(
                 nn.Linear(
                     in_features=mem_dim+mem_dim+time_dim+edge_dim,
                     out_features=msg_dim
@@ -145,7 +141,7 @@ class MemoryUpdater(nn.Module):
         self.graph=graph
         self.n_node=graph.n_node
 
-    def create_message(self,
+    def create_raw_msg(self,
             src:torch.Tensor,
             dst:torch.Tensor,
             edge:torch.Tensor,
@@ -179,7 +175,7 @@ class MemoryUpdater(nn.Module):
 
         edge_ft=self.graph.get_edge_ft(edge=edge)
 
-        src_msg=torch.concat(
+        src_raw_msg=torch.concat(
             [
                 src_mem,
                 dst_mem,
@@ -189,7 +185,7 @@ class MemoryUpdater(nn.Module):
             dim=-1
         ) # [B,mem_dim+mem_dim+time_dim+edge_dim]
 
-        dst_msg=torch.concat(
+        dst_raw_msg=torch.concat(
             [
                 dst_mem,
                 src_mem,
@@ -198,93 +194,39 @@ class MemoryUpdater(nn.Module):
             ],
             dim=-1
         ) # [B,mem_dim+mem_dim+time_dim,edge_dim]
+        return src_raw_msg,dst_raw_msg
 
-        if self.msg_fn=="mlp":
-            src_msg=self.src_mlp(src_msg) # [B,msg_dim]
-            dst_msg=self.dst_mlp(dst_msg) # [B,msg_dim]
-        return src_msg,dst_msg
-
-    def aggregate_message(self,
-            src,
-            dst,
-            src_msg,
-            dst_msg,
-            event_t
+    def aggregate_msg(self,
+            raw_msg_store:dict[int,list[tuple[torch.Tensor,torch.Tensor]]]
         ):
-        """
-        Message Aggregation
-
-        Input:
-            src: [B,]
-            dst: [B,]
-            src_msg: [B,msg_dim]
-            dst_msg: [B,msg_dim]
-            event_t: [B,]
-        Output:
-            aggr_node: [unique_N,]
-            aggr_msg: [unique_N,msg_dim]
-            aggr_event_t: [unique_N,]
-        """
-        device=src.device
-
-        nodes=torch.concat([src,dst],dim=0) # [2B,]
-        msgs=torch.concat([src_msg,dst_msg],dim=0) # [2B,msg_dim]
-        times=torch.concat([event_t,event_t],dim=0) # [2B,]
-
-        # event time 순으로 오름차순 정렬
-        sorted_idx=torch.argsort(times)
-        nodes=nodes[sorted_idx]
-        msgs=msgs[sorted_idx]
-        times=times[sorted_idx]
-
-        msg_dict={}
-        for node,msg,t in zip(nodes,msgs,times):
-            node=node.item()
-            if node not in msg_dict:
-                msg_dict[node]=[]
-            msg_dict[node].append((msg,t))
-
         aggr_node=[]
-        aggr_msg=[]
+        aggr_msg_vec=[]
         aggr_event_t=[]
-        match self.aggr_fn:
-            case "last":
-                for node in msg_dict.keys():
-                    last_msg,last_t=msg_dict[node][-1]
-                    aggr_node.append(node)
-                    aggr_msg.append(last_msg)
-                    aggr_event_t.append(last_t)
-            case "mean":
-                """
-                공식 TGN 코드에서는 mean aggregation 시 message vector만 평균하고, memory의 last_update에 사용할 시간은 그 노드의 가장 최근 message의 timestamp를 사용
-                """
-                for node in msg_dict.keys():
-                    msg_list=[msg for msg,_ in msg_dict[node]]
-                    last_t=msg_dict[node][-1][1]
-                    aggr_node.append(node)
-                    aggr_msg.append(
-                        torch.mean(
-                            torch.stack(msg_list,dim=0),
-                            dim=0,
-                        )
-                    )
-                    # interaction time은 가장 최근 시각 사용
-                    aggr_event_t.append(last_t)
-        aggr_node=torch.tensor(aggr_node,device=device) # [unique_N,]
-        aggr_msg=torch.stack(aggr_msg,dim=0) # [unique_N,msg_dim]
-        aggr_event_t=torch.stack(aggr_event_t,dim=0) # [unique_N,]
-        return aggr_node,aggr_msg,aggr_event_t
-    
+        for node,messages in raw_msg_store.items():
+            if not messages:
+                continue
+            raw_msgs=torch.stack([msg for msg,_ in messages],dim=0)
+            times=torch.stack([t for _,t in messages],dim=0)
+            msg_vec=self.msg_mlp(raw_msgs) if self.msg_fn=="mlp" else raw_msgs
+            last_idx=torch.argsort(times,stable=True)[-1]
+            aggr_node.append(int(node))
+            aggr_msg_vec.append(
+                msg_vec[last_idx] if self.aggr_fn=="last" else msg_vec.mean(dim=0)
+            )
+            aggr_event_t.append(times[last_idx])
+        return {
+            "aggr_node":torch.tensor(aggr_node,dtype=torch.long,device=aggr_msg_vec[0].device),
+            "aggr_msg_vec":torch.stack(aggr_msg_vec,dim=0),
+            "aggr_event_t":torch.stack(aggr_event_t,dim=0)
+        }
+
     def update_memory(self,
-            src:torch.Tensor,
-            dst:torch.Tensor,
-            edge:torch.Tensor,
-            event_t:torch.Tensor,
-            mem_vec:torch.Tensor,
-            mem_t:torch.Tensor
+            raw_msg_store:dict[int,list[tuple[torch.Tensor,torch.Tensor]]],
+            mem_vec:torch.Tensor
         ):
         """
         자식 class의 update_memory 실행으로 자식 class에서 구현된 update_memory_implement 호출
+        raw_msg_store가 비었을 경우 (첫 번째 batch) None 반환 
         
         Input:
             src: [B,]
@@ -298,32 +240,21 @@ class MemoryUpdater(nn.Module):
             mem_vec: [unique_N,mem_dim]
             mem_t: [unique_N,]
         """
-        src_msg,dst_msg=self.create_message(
-            src=src,
-            dst=dst,
-            edge=edge,
-            event_t=event_t,
-            mem_vec=mem_vec,
-            mem_t=mem_t
-        )
-        aggr_node,aggr_msg,aggr_event_t=self.aggregate_message(
-            src=src,
-            dst=dst,
-            src_msg=src_msg,
-            dst_msg=dst_msg,
-            event_t=event_t
-        )
+        if not raw_msg_store:
+            return None
+
+        aggr_msg=self.aggregate_msg(raw_msg_store=raw_msg_store)
         updated_result=self.update_memory_implement(
-            aggr_node=aggr_node,
-            aggr_msg=aggr_msg,
-            aggr_event_t=aggr_event_t,
+            aggr_node=aggr_msg["aggr_node"],
+            aggr_msg_vec=aggr_msg["aggr_msg_vec"],
+            aggr_event_t=aggr_msg["aggr_event_t"],
             mem_vec=mem_vec
         )
         return updated_result
 
     def update_memory_implement(self,
             aggr_node,
-            aggr_msg,
+            aggr_msg_vec,
             aggr_event_t,
             mem_vec
         ):
@@ -359,14 +290,14 @@ class GRUMemoryUpdater(MemoryUpdater):
 
     def update_memory_implement(self,
             aggr_node:torch.Tensor,
-            aggr_msg:torch.Tensor,
+            aggr_msg_vec:torch.Tensor,
             aggr_event_t:torch.Tensor,
             mem_vec:torch.Tensor
         ):
         """
         Input:
             aggr_node: [unique_N,]
-            aggr_msg: [unique_N,msg_dim]
+            aggr_msg_vec: [unique_N,msg_dim]
             aggr_event_t: [unique_N,]
             mem_vec: [N,mem_dim]
         Return:
@@ -375,7 +306,7 @@ class GRUMemoryUpdater(MemoryUpdater):
             mem_t: [unique_N,]
         """
         pre_mem_vec=mem_vec[aggr_node] # [unique_N,mem_dim]
-        updated_mem_vec=self.memory_updater(aggr_msg,pre_mem_vec) # [unique_N,mem_dim]
+        updated_mem_vec=self.memory_updater(aggr_msg_vec,pre_mem_vec) # [unique_N,mem_dim]
         return {
             "node":aggr_node, # [unique_N]
             "mem_vec":updated_mem_vec, # [unique_N,mem_dim]

@@ -46,6 +46,17 @@ class TGAT(nn.Module):
         self.n_node=graph.n_node
         self.encoder.set_graph(graph=graph)
 
+    def embedding(self,
+            tar:torch.Tensor,
+            tar_t:torch.Tensor
+        ):
+        embedded_tar_vec=self.encoder.compute_embedding(
+            tar=tar,
+            tar_t=tar_t,
+            n_layer=self.n_layer
+        )
+        return embedded_tar_vec
+
 class TGAT_LP(TGAT):
     def __init__(self,
             node_dim:int,
@@ -67,6 +78,7 @@ class TGAT_LP(TGAT):
             n_neighbor=n_neighbor,
             n_head=n_head
         )
+
         # decoder
         self.decoder=Link_Predictor(
             embed_dim=embed_dim,
@@ -82,10 +94,9 @@ class TGAT_LP(TGAT):
         batch_size=src.size(0) 
         tar=torch.concat([src,dst],dim=0) 
         tar_t=torch.cat([event_t,event_t],dim=0)
-        embedded_tar_vec=self.encoder.compute_embedding(
+        embedded_tar_vec=self.embedding(
             tar=tar,
-            tar_t=tar_t,
-            n_layer=self.n_layer
+            tar_t=tar_t
         )
         src_vec=embedded_tar_vec[:batch_size]
         dst_vec=embedded_tar_vec[batch_size:]

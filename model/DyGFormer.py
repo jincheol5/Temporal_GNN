@@ -86,35 +86,7 @@ class DyGFormer(nn.Module):
         self.module=DyGFormer_Module()
         self.module.set_graph(graph=graph)
 
-class DyGFormer_LP(DyGFormer):
-    def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            latent_dim:int,
-            time_dim:int,
-            co_dim:int,
-            common_dim:int,
-            embed_dim:int,
-            n_layer:int,
-            n_head:int,
-            max_history_len:int,
-            patch_size:int
-        ):
-        super(DyGFormer_LP,self).__init__(
-            node_dim=node_dim,
-            edge_dim=edge_dim,
-            latent_dim=latent_dim,
-            time_dim=time_dim,
-            co_dim=co_dim,
-            common_dim=common_dim,
-            embed_dim=embed_dim,
-            n_layer=n_layer,
-            n_head=n_head,
-            max_history_len=max_history_len,
-            patch_size=patch_size
-        )
-
-    def forward(self,
+    def embedding(self,
             src:torch.Tensor,
             dst:torch.Tensor,
             event_t:torch.Tensor,
@@ -131,16 +103,9 @@ class DyGFormer_LP(DyGFormer):
             7. patching
             8. patch_encoder로 마지막 차원 통일.
             9. ... 
-
-        Input: sampling 된 pos/neg pair의 src,dst,event_t (=query time)
-            src: [B,] 
-            dst: [B,]
-            event_t: [B,]
-        Return:
-            pred_logit: [B,1]
         """
         device=src.device
-
+        
         ### 1. get sequence data
         src_result=self.graph.get_history_seq(
             node=src,
@@ -280,10 +245,59 @@ class DyGFormer_LP(DyGFormer):
         h=torch.concat([src_h,dst_h],dim=0) # [2B,4 x patch_dim]
         h=self.output_layer(h) # [2B,output_dim]
         src_h,dst_h=torch.chunk(h,chunks=2,dim=0) # [B,output_dim]
+        return {
+            "src_vec":src_h,
+            "dst_vec":dst_h
+        }
 
-        ### 12. predict TR
+class DyGFormer_LP(DyGFormer):
+    def __init__(self,
+            node_dim:int,
+            edge_dim:int,
+            latent_dim:int,
+            time_dim:int,
+            co_dim:int,
+            common_dim:int,
+            embed_dim:int,
+            n_layer:int,
+            n_head:int,
+            max_history_len:int,
+            patch_size:int
+        ):
+        super(DyGFormer_LP,self).__init__(
+            node_dim=node_dim,
+            edge_dim=edge_dim,
+            latent_dim=latent_dim,
+            time_dim=time_dim,
+            co_dim=co_dim,
+            common_dim=common_dim,
+            embed_dim=embed_dim,
+            n_layer=n_layer,
+            n_head=n_head,
+            max_history_len=max_history_len,
+            patch_size=patch_size
+        )
+
+        # decoder
+        self.decoder=Link_Predictor(
+            embed_dim=embed_dim,
+            latent_dim=latent_dim
+        )
+
+    def forward(self,
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor,
+        ):
+        embedded_vec=self.embedding(
+            src=src,
+            dst=dst,
+            event_t=event_t
+        )
+        src_vec=embedded_vec["src_vec"]
+        src_vec=embedded_vec["src_vec"]
         pred_logit=self.decoder(
-            src_vec=src_h,
-            dst_vec=dst_h
+            src_vec=src_vec,
+            dst_vec=src_vec
         ) # [B,1]
         return pred_logit
