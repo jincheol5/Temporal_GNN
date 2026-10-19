@@ -1,40 +1,34 @@
 import torch
 import torch.nn as nn
-from graph import TemporalGraph
-from utils import TrainUtils
-from module import TimeEncoder,TransformerEncoderBlock
+from graph import DyGFormer_Graph
+from module import TimeEncoder,TransformerEncoderBlock,DyGFormer_Module,Link_Predictor
 
-class DyGFormer_Base(nn.Module):
+class DyGFormer(nn.Module):
     def __init__(self,
             node_dim:int,
             edge_dim:int,
             latent_dim:int,
             time_dim:int,
-            output_dim:int,
             co_dim:int,
-            patch_dim:int,
-            patch_size:int,
-            graph:TemporalGraph,
+            common_dim:int,
+            embed_dim:int,
             n_layer:int,
-            max_n_neighbor:int,
-            n_head:int
+            n_head:int,
+            max_history_len:int,
+            patch_size:int
         ):
         super().__init__()
         self.node_dim=node_dim
         self.edge_dim=edge_dim
         self.latent_dim=latent_dim
         self.time_dim=time_dim
-        self.output_dim=output_dim
         self.co_dim=co_dim
-        self.patch_dim=patch_dim
-        self.patch_size=patch_size
-        self.graph=graph
+        self.common_dim=common_dim
+        self.embed_dim=embed_dim
         self.n_layer=n_layer
-        self.max_n_neighbor=max_n_neighbor
         self.n_head=n_head
-
-        # set attn_dim
-        self.attn_dim=4*patch_dim
+        self.max_history_len=max_history_len
+        self.patch_size=patch_size
 
         # time encoder
         self.time_encoder=TimeEncoder(time_dim=time_dim)
@@ -49,10 +43,22 @@ class DyGFormer_Base(nn.Module):
         # patch_encoder
         self.patch_encoder=nn.ModuleDict(
             {
-                "node":nn.Linear(in_features=patch_size*node_dim,out_features=patch_dim),
-                "edge":nn.Linear(in_features=patch_size*edge_dim,out_features=patch_dim),
-                "time":nn.Linear(in_features=patch_size*time_dim,out_features=patch_dim),
-                "co":nn.Linear(in_features=patch_size*co_dim,out_features=patch_dim)
+                "node":nn.Linear(
+                    in_features=patch_size*node_dim,
+                    out_features=common_dim
+                ),
+                "edge":nn.Linear(
+                    in_features=patch_size*edge_dim,
+                    out_features=common_dim
+                ),
+                "time":nn.Linear(
+                    in_features=patch_size*time_dim,
+                    out_features=common_dim
+                ),
+                "co":nn.Linear(
+                    in_features=patch_size*co_dim,
+                    out_features=common_dim
+                )
             }
         )
 
@@ -60,7 +66,7 @@ class DyGFormer_Base(nn.Module):
         self.transformer_encoders=nn.ModuleList(
             [
                 TransformerEncoderBlock(
-                    attn_dim=self.attn_dim,
+                    attn_dim=4*common_dim,
                     latent_dim=latent_dim,
                     n_head=n_head
                 )
@@ -69,303 +75,215 @@ class DyGFormer_Base(nn.Module):
         )
 
         # Time-aware Node Representation
-        self.output_layer=nn.Linear(in_features=self.attn_dim,out_features=output_dim)
+        self.output_layer=nn.Linear(
+            in_features=4*common_dim,
+            out_features=embed_dim
+        )
 
-    def forward(self):
-        return NotImplemented
+    def set_graph(self,graph:DyGFormer_Graph):
+        self.graph=graph
+        self.n_node=graph.n_node
+        self.module=DyGFormer_Module()
+        self.module.set_graph(graph=graph)
 
-class DyGFormer_Link_Prediction(DyGFormer_Base):
+class DyGFormer_LP(DyGFormer):
     def __init__(self,
             node_dim:int,
             edge_dim:int,
             latent_dim:int,
             time_dim:int,
-            output_dim:int,
             co_dim:int,
-            patch_dim:int,
-            patch_size:int,
-            graph:TemporalGraph,
+            common_dim:int,
+            embed_dim:int,
             n_layer:int,
-            max_n_neighbor:int,
-            n_head:int
+            n_head:int,
+            max_history_len:int,
+            patch_size:int
         ):
-        super(DyGFormer_Link_Prediction,self).__init__(
+        super(DyGFormer_LP,self).__init__(
             node_dim=node_dim,
             edge_dim=edge_dim,
             latent_dim=latent_dim,
             time_dim=time_dim,
-            output_dim=output_dim,
             co_dim=co_dim,
-            patch_dim=patch_dim,
-            patch_size=patch_size,
-            graph=graph,
+            common_dim=common_dim,
+            embed_dim=embed_dim,
             n_layer=n_layer,
-            max_n_neighbor=max_n_neighbor,
-            n_head=n_head
+            n_head=n_head,
+            max_history_len=max_history_len,
+            patch_size=patch_size
         )
-        # decoder
-        self.decoder=nn.Sequential(
-            nn.Linear(
-                in_features=output_dim+output_dim,
-                out_features=latent_dim
-            ),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=latent_dim,
-                out_features=1
-            )
-        )
+
     def forward(self,
-            pos_event:dict,
-            neg_event:dict
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor,
         ):
         """
-        Input:
-            pos_event: dict
-                key: src, dst, edge, event_t
-                value: 
-                    src: [B,] 
-                    dst: [B,] 
-                    edge: [B,]
-                    event_t: [B,]
-            neg_event: dict
-                key: src, dst, edge, event_t
-                value:
-                    src: [B,] 
-                    dst: [B,]
-                    edge: [B,] 
-                    event_t: [B,]
-        """
-        ### 0. unpack event dict
-        pos_src=pos_event["src"]
-        pos_dst=pos_event["dst"]
-        pos_event_t=pos_event["event_t"]
-        neg_src=neg_event["src"]
-        neg_dst=neg_event["dst"]
-        neg_event_t=neg_event["event_t"]
+        < STEP > 
+        In CPU:
+            1. src, dst에 대한 history sequence 가져오기.
+            2. padding sequence using patch_size.
+            3. src_seq, dst_seq로 co-occurrence vector 구하기.
+        In GPU:
+            5. time_encoder로 ts_vec 인코딩.
+            6. NCoE로 co_vec 인코딩.
+            7. patching
+            8. patch_encoder로 마지막 차원 통일.
+            9. ... 
 
-        src=torch.concat([pos_src,neg_src],dim=0) # [2B,]
-        dst=torch.concat([pos_dst,neg_dst],dim=0) # [2B,]
-        event_t=torch.concat([pos_event_t,neg_event_t],dim=0) # [2B,]
-        device=pos_src.device
+        Input: sampling 된 pos/neg pair의 src,dst,event_t (=query time)
+            src: [B,] 
+            dst: [B,]
+            event_t: [B,]
+        Return:
+            pred_logit: [B,1]
+        """
+        device=src.device
 
         ### 1. get sequence data
-        src_seq=self.graph.get_historical_seq(node=src,event_t=event_t,max_n_neighbor=self.max_n_neighbor)
-        src_seq_node=src_seq["seq_node"]
-        src_seq_edge=src_seq["seq_edge"]
-        src_seq_ts=src_seq["seq_ts"]
-
-        dst_seq=self.graph.get_historical_seq(node=dst,event_t=event_t,max_n_neighbor=self.max_n_neighbor)
-        dst_seq_node=dst_seq["seq_node"]
-        dst_seq_edge=dst_seq["seq_edge"]
-        dst_seq_ts=dst_seq["seq_ts"]
-
-        co=self.graph.get_co_occurrence(
-            src_seq_node=src_seq_node,
-            dst_seq_node=dst_seq_node
+        src_result=self.graph.get_history_seq(
+            node=src,
+            event_t=event_t,
+            max_history_len=self.max_history_len
         )
-        src_seq_co=co["src_seq_co"]
-        dst_seq_co=co["dst_seq_co"]
+        src_node_seq_list=src_result["node"]
+        src_edge_seq_list=src_result["edge"]
+        src_ts_seq_list=src_result["ts"]
 
-        ### 2. get padded sequence tensor
-        seq_tensor=TrainUtils.padding_seq(
-            src_seq_node=src_seq_node,
-            src_seq_edge=src_seq_edge,
-            src_seq_ts=src_seq_ts,
-            src_seq_co=src_seq_co,
-            dst_seq_node=dst_seq_node,
-            dst_seq_edge=dst_seq_edge,
-            dst_seq_ts=dst_seq_ts,
-            dst_seq_co=dst_seq_co,
-            patch_size=self.patch_size,
-            device=device
+        dst_result=self.graph.get_history_seq(
+            node=dst,
+            event_t=event_t,
+            max_history_len=self.max_history_len
         )
+        dst_node_seq_list=dst_result["node"]
+        dst_edge_seq_list=dst_result["edge"]
+        dst_ts_seq_list=dst_result["ts"]
 
-        src_seq_node=seq_tensor["src_seq_node"] # [2B,max_seq_len]
-        src_seq_edge=seq_tensor["src_seq_edge"] # [2B,max_seq_len]
-        src_seq_ts=seq_tensor["src_seq_ts"] # [2B,max_seq_len,1]
-        src_seq_co=seq_tensor["src_seq_co"] # [2B,max_seq_len,2]
-
-        dst_seq_node=seq_tensor["dst_seq_node"] # [2B,max_seq_len]
-        dst_seq_edge=seq_tensor["dst_seq_edge"] # [2B,max_seq_len]
-        dst_seq_ts=seq_tensor["dst_seq_ts"] # [2B,max_seq_len,1]
-        dst_seq_co=seq_tensor["dst_seq_co"] # [2B,max_seq_len,2]
-
-        ### 3. get node, edge feature tensor
-        batch_size,max_seq_len=src_seq_node.size()
-        src_seq_node=src_seq_node.flatten() # [2B x max_seq_len]
-        src_seq_edge=src_seq_edge.flatten() # [2B x max_seq_len]
-        dst_seq_node=dst_seq_node.flatten() # [2B x max_seq_len]
-        dst_seq_edge=dst_seq_edge.flatten() # [2B x max_seq_len]
-
-        src_seq_node_ft=self.graph.get_node_ft(node=src_seq_node) # [2B x max_seq_len,node_dim]
-        src_seq_edge_ft=self.graph.get_edge_ft(edge=src_seq_edge) # [2B x max_seq_len,edge_dim]
-        dst_seq_node_ft=self.graph.get_node_ft(node=dst_seq_node) # [2B x max_seq_len,node_dim]
-        dst_seq_edge_ft=self.graph.get_edge_ft(edge=dst_seq_edge) # [2B x max_seq_len,edge_dim]
-
-        src_seq_node_ft=src_seq_node_ft.reshape(batch_size,max_seq_len,self.node_dim) # [2B,max_seq_len,node_dim]
-        src_seq_edge_ft=src_seq_edge_ft.reshape(batch_size,max_seq_len,self.edge_dim) # [2B,max_seq_len,edge_dim]
-        dst_seq_node_ft=dst_seq_node_ft.reshape(batch_size,max_seq_len,self.node_dim) # [2B,max_seq_len,node_dim]
-        dst_seq_edge_ft=dst_seq_edge_ft.reshape(batch_size,max_seq_len,self.edge_dim) # [2B,max_seq_len,edge_dim]
-
-        ### 4. apply time_encoder
-        src_seq_ts_ft=self.time_encoder(src_seq_ts) # [2B,max_seq_len,time_dim]
-        dst_seq_ts_ft=self.time_encoder(dst_seq_ts) # [2B,max_seq_len,time_dim]
-
-        ### 5. apply NCoE
-        src_seq_co_0=src_seq_co[:,:,0:1] # [2B,max_seq_len,1]
-        src_seq_co_1=src_seq_co[:,:,1:2] # [2B,max_seq_len,1]
-        dst_seq_co_0=dst_seq_co[:,:,0:1] # [2B,max_seq_len,1]
-        dst_seq_co_1=dst_seq_co[:,:,1:2] # [2B,max_seq_len,1]
-
-        seq_co=torch.concat(
-            [
-                src_seq_co_0,
-                src_seq_co_1,
-                dst_seq_co_0,
-                dst_seq_co_1
-            ],
-            dim=0
-        ) # [8B,max_seq_len,1]
-
-        seq_co_ft=self.NCoE(seq_co) # [8B,max_seq_len,co_dim]
-        src_seq_co_0_ft,src_seq_co_1_ft,dst_seq_co_0_ft,dst_seq_co_1_ft=torch.chunk(
-            seq_co_ft,
-            chunks=4,
-            dim=0
-        ) # [2B,max_seq_len,co_dim]
-        src_seq_co_ft=src_seq_co_0_ft+src_seq_co_1_ft # [2B,max_seq_len,co_dim]
-        dst_seq_co_ft=dst_seq_co_0_ft+dst_seq_co_1_ft # [2B,max_seq_len,co_dim]
-
-        ### 6. get patching sequence
-        src_M=TrainUtils.patching_seq(
-            seq_node_ft=src_seq_node_ft,
-            seq_edge_ft=src_seq_edge_ft,
-            seq_ts_ft=src_seq_ts_ft,
-            seq_co_ft=src_seq_co_ft,
+        ### 2. get padded sequence
+        src_result=self.module.get_padded_seq_vec(
+            node_seq_list=src_node_seq_list,
+            edge_seq_list=src_edge_seq_list,
+            ts_seq_list=src_ts_seq_list,
             patch_size=self.patch_size
         )
-        src_M_n=src_M["M_n"] # [2B,l,node_dim x p]
-        src_M_e=src_M["M_e"] # [2B,l,edge_dim x p]
-        src_M_t=src_M["M_t"] # [2B,l,time_dim x p]
-        src_M_c=src_M["M_c"] # [2B,l,co_dim x p]
+        src_seq=src_result["node_seq"]
+        src_ts_seq=src_result["ts_seq"]
+        src_node_seq_vec=src_result["node_seq_vec"]
+        src_edge_seq_vec=src_result["edge_seq_vec"]
 
-        dst_M=TrainUtils.patching_seq(
-            seq_node_ft=dst_seq_node_ft,
-            seq_edge_ft=dst_seq_edge_ft,
-            seq_ts_ft=dst_seq_ts_ft,
-            seq_co_ft=dst_seq_co_ft,
+        dst_result=self.module.get_padded_seq_vec(
+            node_seq_list=dst_node_seq_list,
+            edge_seq_list=dst_edge_seq_list,
+            ts_seq_list=dst_ts_seq_list,
             patch_size=self.patch_size
         )
-        dst_M_n=dst_M["M_n"] # [2B,l,node_dim x p]
-        dst_M_e=dst_M["M_e"] # [2B,l,edge_dim x p]
-        dst_M_t=dst_M["M_t"] # [2B,l,time_dim x p]
-        dst_M_c=dst_M["M_c"] # [2B,l,co_dim x p]
+        dst_seq=dst_result["node_seq"]
+        dst_ts_seq=dst_result["ts_seq"]
+        dst_node_seq_vec=dst_result["node_seq_vec"]
+        dst_edge_seq_vec=dst_result["edge_seq_vec"]
 
-        ### 7. apply patch encoder and get z
-        M_n=torch.concat(
-            [
-                src_M_n,
-                dst_M_n
-            ],
-            dim=0
-        ) # [4B,l,node_dim x p]
-        M_e=torch.concat(
-            [
-                src_M_e,
-                dst_M_e
-            ],
-            dim=0
-        ) # [4B,l,edge_dim x p]
-        M_t=torch.concat(
-            [
-                src_M_t,
-                dst_M_t
-            ],
-            dim=0
-        ) # [4B,l,time_dim x p]
-        M_c=torch.concat(
-            [
-                src_M_c,
-                dst_M_c
-            ],
-            dim=0
-        ) # [4B,l,co_dim x p]
+        ### 3. compute co-occurrence vector
+        co_result=self.module.get_co_occurrence_vec(
+            src_seq=src_seq,
+            dst_seq=dst_seq
+        )
+        src_co_vec=co_result["src_co_vec"]
+        dst_co_vec=co_result["dst_co_vec"]
 
-        M_n=self.patch_encoder["node"](M_n) # [4B,l,patch_dim]
-        M_e=self.patch_encoder["edge"](M_e) # [4B,l,patch_dim]
-        M_t=self.patch_encoder["time"](M_t) # [4B,l,patch_dim]
-        M_c=self.patch_encoder["co"](M_c) # [4B,l,patch_dim]
+        ### 4. move to GPU
+        src_seq=src_seq.to(device)
+        src_node_seq_vec=src_node_seq_vec.to(device)
+        src_edge_seq_vec=src_edge_seq_vec.to(device)
+        src_ts_seq=src_ts_seq.to(device)
+        src_co_vec=src_co_vec.to(device)
 
-        src_M_n,dst_M_n=torch.chunk(
-            M_n,
-            chunks=2,
-            dim=0
-        ) # [2B,l,patch_dim]
-        src_M_e,dst_M_e=torch.chunk(
-            M_e,
-            chunks=2,
-            dim=0
-        ) # [2B,l,patch_dim]
-        src_M_t,dst_M_t=torch.chunk(
-            M_t,
-            chunks=2,
-            dim=0
-        ) # [2B,l,patch_dim]
-        src_M_c,dst_M_c=torch.chunk(
-            M_c,
-            chunks=2,
-            dim=0
-        ) # [2B,l,patch_dim]
+        dst_seq=dst_seq.to(device)
+        dst_node_seq_vec=dst_node_seq_vec.to(device)
+        dst_edge_seq_vec=dst_edge_seq_vec.to(device)
+        dst_ts_seq=dst_ts_seq.to(device)
+        dst_co_vec=dst_co_vec.to(device)
 
-        src_z=torch.concat(
-            [
-                src_M_n,
-                src_M_e,
-                src_M_t,
-                src_M_c
-            ],
-            dim=-1
-        ) # [2B,l,4 x patch_dim]
-        dst_z=torch.concat(
-            [
-                dst_M_n,
-                dst_M_e,
-                dst_M_t,
-                dst_M_c
-            ],
-            dim=-1
-        ) # [2B,l,4 x patch_dim]
-        z=torch.concat(
-            [src_z,dst_z],
-            dim=1
-        ) # [2B,2l,4 x patch_dim]
+        ### 5. encoding timespan using time_encoder
+        src_ts_seq_vec=self.time_encoder(src_ts_seq) 
+        dst_ts_seq_vec=self.time_encoder(dst_ts_seq)
 
-        ### 8. apply transformer encoder
+        # 공식 구현과 동일하게 패딩 위치의 시간 벡터를 0으로 설정
+        src_ts_seq_vec[src_seq==0]=0.0
+        dst_ts_seq_vec[dst_seq==0]=0.0
+
+        ### 6. encoding co_vec using NCoE
+        src_co_vec_0=src_co_vec[:,:,0:1] 
+        src_co_vec_1=src_co_vec[:,:,1:2] 
+        dst_co_vec_0=dst_co_vec[:,:,0:1] 
+        dst_co_vec_1=dst_co_vec[:,:,1:2] 
+
+        src_co_vec_0=self.NCoE(src_co_vec_0)
+        src_co_vec_1=self.NCoE(src_co_vec_1)
+        dst_co_vec_0=self.NCoE(dst_co_vec_0)
+        dst_co_vec_1=self.NCoE(dst_co_vec_1)
+
+        src_co_vec=src_co_vec_0+src_co_vec_1 # [B,seq_len,co_dim]
+        dst_co_vec=dst_co_vec_0+dst_co_vec_1 # [B,seq_len,co_dim]
+
+        ### 7. get patching vector
+        src_result=self.module.get_patching_vec(
+            node_seq_vec=src_node_seq_vec,
+            edge_seq_vec=src_edge_seq_vec,
+            ts_seq_vec=src_ts_seq_vec,
+            co_seq_vec=src_co_vec,
+            patch_size=self.patch_size
+        )
+        src_M_n=src_result["node"]
+        src_M_e=src_result["edge"]
+        src_M_t=src_result["ts"]
+        src_M_c=src_result["co"]
+
+        dst_result=self.module.get_patching_vec(
+            node_seq_vec=dst_node_seq_vec,
+            edge_seq_vec=dst_edge_seq_vec,
+            ts_seq_vec=dst_ts_seq_vec,
+            co_seq_vec=dst_co_vec,
+            patch_size=self.patch_size
+        )
+        dst_M_n=dst_result["node"]
+        dst_M_e=dst_result["edge"]
+        dst_M_t=dst_result["ts"]
+        dst_M_c=dst_result["co"]
+
+        ### 8. apply patch encoder
+        src_M_n=self.patch_encoder["node"](src_M_n) 
+        src_M_e=self.patch_encoder["edge"](src_M_e) 
+        src_M_t=self.patch_encoder["time"](src_M_t) 
+        src_M_c=self.patch_encoder["co"](src_M_c) 
+
+        dst_M_n=self.patch_encoder["node"](dst_M_n) 
+        dst_M_e=self.patch_encoder["edge"](dst_M_e) 
+        dst_M_t=self.patch_encoder["time"](dst_M_t) 
+        dst_M_c=self.patch_encoder["co"](dst_M_c) 
+
+        ### 9. get updated node vec z
+        src_z=torch.concat([src_M_n,src_M_e,src_M_t,src_M_c],dim=-1) # [B,src_l,4 x patch_dim]
+        dst_z=torch.concat([dst_M_n,dst_M_e,dst_M_t,dst_M_c],dim=-1) # [B,dst_l,4 x patch_dim]
+        src_l=src_z.size(1)
+        dst_l=dst_z.size(1)
+        z=torch.concat([src_z,dst_z],dim=1) 
+
+        ### 10. apply transformer encoder
         for transformer_encoder in self.transformer_encoders:
             z=transformer_encoder(z)
-        src_z,dst_z=torch.chunk(
-            z,
-            chunks=2,
-            dim=1
-        ) # [2B,l,4 x patch_dim]
+        src_z,dst_z=torch.split(z,[src_l,dst_l],dim=1)
 
-        ### 9. Time-aware Node Representation
-        src_h=src_z.mean(dim=1) # [2B,4 x patch_dim]
-        dst_h=dst_z.mean(dim=1) # [2B,4 x patch_dim]
+        ### 11. get Time-aware Node Representation h
+        src_h=src_z.mean(dim=1) # [B,4 x patch_dim]
+        dst_h=dst_z.mean(dim=1) # [B,4 x patch_dim]
+        h=torch.concat([src_h,dst_h],dim=0) # [2B,4 x patch_dim]
+        h=self.output_layer(h) # [2B,output_dim]
+        src_h,dst_h=torch.chunk(h,chunks=2,dim=0) # [B,output_dim]
 
-        h=torch.concat(
-            [src_h,dst_h],
-            dim=0
-        ) # [4B,4 x patch_dim]
-        h=self.output_layer(h) # [4B,output_dim]
-        src_h,dst_h=torch.chunk(
-            h,
-            chunks=2,
-            dim=0
-        )  # [2B,output_dim]
-
-        ### 10. compute link logit
-        link_ft=torch.concat([src_h,dst_h],dim=-1) # [2B,output_dim+output_dim]
-        pred_link_logit=self.decoder(link_ft) # [2B,1]
-        return pred_link_logit
+        ### 12. predict TR
+        pred_logit=self.decoder(
+            src_vec=src_h,
+            dst_vec=dst_h
+        ) # [B,1]
+        return pred_logit

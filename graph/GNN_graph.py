@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from .temporal_graph import TemporalGraph
 
-class TGN_Graph(TemporalGraph):
+class GNN_Graph(TemporalGraph):
     def __init__(self,
             graph_df:pd.DataFrame,
             node_ft:np.ndarray=None,
@@ -12,7 +12,6 @@ class TGN_Graph(TemporalGraph):
             edge_dim:int=32
         ):
         super().__init__(graph_df=graph_df,)
-        # set node_ft, edge_ft, node_dim, edge_dim
         if node_ft is None: 
             self.set_node_ft(node_dim=node_dim)
         else: 

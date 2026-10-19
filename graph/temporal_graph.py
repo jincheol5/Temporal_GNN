@@ -17,7 +17,6 @@ class TemporalGraph:
         in_adj=[[] for _ in range(self.n_node+1)]
         in_adj_edge=[[] for _ in range(self.n_node+1)]
         in_adj_t=[[] for _ in range(self.n_node+1)]
-
         for event in graph_df.itertuples(index=False): # col: [u,i,t,idx=edge_id]
             src=int(event.u)
             dst=int(event.i)
