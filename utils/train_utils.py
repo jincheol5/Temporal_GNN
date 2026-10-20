@@ -78,3 +78,27 @@ class TrainUtils:
         torch.manual_seed(seed) # PyTorch의 CPU 및 CUDA 등 장치의 난수 시드를 설정
         torch.backends.cudnn.deterministic=True # cuDNN이 사용하는 알고리즘을 결정적인 알고리즘으로 제한
         torch.backends.cudnn.benchmark=False # cuDNN이 여러 알고리즘의 속도를 측정해 실행 알고리즘을 선택하는 기능 끔
+
+    @staticmethod
+    def split_graph_df(
+            graph_df:pd.DataFrame,
+            train_ratio:float=0.7,
+            val_ratio:float=0.15
+        ):
+        """
+        Input:
+            df
+            train_ratio
+            val_ratio
+        Return:
+            train_df
+            val_df
+            test_df
+        """
+        n=len(graph_df)
+        train_end=int(n*train_ratio)
+        val_end=int(n*(train_ratio+val_ratio))
+        train_df=graph_df.iloc[:train_end].reset_index(drop=True)
+        val_df=graph_df.iloc[train_end:val_end].reset_index(drop=True)
+        test_df=graph_df.iloc[val_end:].reset_index(drop=True)
+        return train_df,val_df,test_df
