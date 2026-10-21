@@ -6,6 +6,7 @@ class Link_Predictor(nn.Module):
             embed_dim:int=32,
             latent_dim:int=32
         ):
+        super().__init__()
         self.embed_dim=embed_dim
         self.latent_dim=latent_dim
         self.decoder=nn.Sequential(

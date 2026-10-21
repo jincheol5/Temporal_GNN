@@ -5,16 +5,17 @@ import numpy as np
 import torch
 from typing import Literal
 from tqdm import tqdm
-from torch.utils.data import Dataset,DataLoader,Subset
-from graph import TemporalGraph,GNN_Graph,DyGFormer_Graph
+from torch.utils.data import Dataset,DataLoader
+from graph import GNN_Graph,DyGFormer_Graph
 from .data_utils import DataUtils
+from .sampling import Sampler
 
 class TemporalGraphDataset(Dataset):
-    def __init__(self,df:pd.DataFrame):
-        self.src=torch.tensor(df["u"].values,dtype=torch.long)
-        self.dst=torch.tensor(df["i"].values,dtype=torch.long)
-        self.t=torch.tensor(df["t"].values,dtype=torch.float32)
-        self.edge=torch.tensor(df["idx"].values,dtype=torch.long)
+    def __init__(self,graph_df:pd.DataFrame):
+        self.src=torch.tensor(graph_df["u"].values,dtype=torch.long)
+        self.dst=torch.tensor(graph_df["i"].values,dtype=torch.long)
+        self.t=torch.tensor(graph_df["t"].values,dtype=torch.float32)
+        self.edge=torch.tensor(graph_df["idx"].values,dtype=torch.long)
 
     def __len__(self):
         return len(self.src)
@@ -80,6 +81,37 @@ class TrainUtils:
         torch.backends.cudnn.benchmark=False # cuDNN이 여러 알고리즘의 속도를 측정해 실행 알고리즘을 선택하는 기능 끔
 
     @staticmethod
+    def generate_model_graph(
+            model_name:Literal[
+                "TGAT",
+                "TGN",
+                "DyGFormer"
+            ],
+            graph_df:pd.DataFrame,
+            node_ft:np.ndarray=None,
+            edge_ft:np.ndarray=None,
+            node_dim:int=32,
+            edge_dim:int=32
+        ):
+        if model_name=="DyGFormer":
+            graph=DyGFormer_Graph(
+                graph_df=graph_df,
+                node_ft=node_ft,
+                edge_ft=edge_ft,
+                node_dim=node_dim,
+                edge_dim=edge_dim
+            )
+        else: # TGAT, TGN
+            graph=GNN_Graph(
+                graph_df=graph_df,
+                node_ft=node_ft,
+                edge_ft=edge_ft,
+                node_dim=node_dim,
+                edge_dim=edge_dim
+            )
+        return graph
+
+    @staticmethod
     def split_graph_df(
             graph_df:pd.DataFrame,
             train_ratio:float=0.7,
@@ -102,3 +134,15 @@ class TrainUtils:
         val_df=graph_df.iloc[train_end:val_end].reset_index(drop=True)
         test_df=graph_df.iloc[val_end:].reset_index(drop=True)
         return train_df,val_df,test_df
+
+    @staticmethod
+    def set_sampler(
+            dataset:TemporalGraphDataset,
+            seed:int|None=None
+        ):
+        dst_list=dataset.dst.tolist()
+        if seed is None:
+            sampler=Sampler(dst_list=dst_list)
+        else:
+            sampler=Sampler(dst_list=dst_list,seed=seed)
+        return sampler

@@ -295,9 +295,9 @@ class DyGFormer_LP(DyGFormer):
             event_t=event_t
         )
         src_vec=embedded_vec["src_vec"]
-        src_vec=embedded_vec["src_vec"]
+        dst_vec=embedded_vec["dst_vec"]
         pred_logit=self.decoder(
             src_vec=src_vec,
-            dst_vec=src_vec
+            dst_vec=dst_vec
         ) # [B,1]
-        return pred_logit
+        return pred_logit.squeeze(-1) # [B,]

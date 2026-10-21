@@ -106,4 +106,4 @@ class TGAT_LP(TGAT):
             src_vec=src_vec,
             dst_vec=dst_vec
         ) # [B,1]
-        return pred_logit
+        return pred_logit.squeeze(-1) # [B,]

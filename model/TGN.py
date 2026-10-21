@@ -146,3 +146,4 @@ class TGN_LP(TGN):
             embed_dim=embed_dim,
             latent_dim=latent_dim
         )
+
