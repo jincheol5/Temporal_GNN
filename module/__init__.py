@@ -3,4 +3,5 @@ from .attn_module import *
 from .embed_module import *
 from .mem_module import *
 from .decoder_module import *
+from .mlp_module import *
 from .DyGFormer_module import *

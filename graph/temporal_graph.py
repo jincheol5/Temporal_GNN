@@ -8,6 +8,7 @@ class TemporalGraph:
         ):
         ### graph information
         self.graph_df=graph_df
+        self.n_event=len(graph_df)
         self.n_node=int(max(graph_df["u"].max(),graph_df["i"].max()))
         self.bipartite=bipartite
         self.max_u=int(graph_df["u"].max())
