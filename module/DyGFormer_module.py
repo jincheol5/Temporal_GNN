@@ -56,7 +56,7 @@ class DyGFormer_Module:
         )
         ts_seq=np.zeros(
             (batch_size,seq_len),
-            dtype=np.float32
+            dtype=np.int64
         )
 
         # sequence를 앞에서부터 저장

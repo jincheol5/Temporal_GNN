@@ -5,16 +5,15 @@ import numpy as np
 import torch
 from typing import Literal
 from tqdm import tqdm
-from torch.utils.data import Dataset,DataLoader
-from graph import GNN_Graph,DyGFormer_Graph
-from .data_utils import DataUtils
+from torch.utils.data import Dataset
+from graph import GNN_Graph,DyGFormer_Graph,CAW_N_Graph
 from .sampling import Sampler
 
 class TemporalGraphDataset(Dataset):
     def __init__(self,graph_df:pd.DataFrame):
         self.src=torch.tensor(graph_df["u"].values,dtype=torch.long)
         self.dst=torch.tensor(graph_df["i"].values,dtype=torch.long)
-        self.t=torch.tensor(graph_df["t"].values,dtype=torch.float32)
+        self.t=torch.tensor(graph_df["t"].values,dtype=torch.int64)
         self.edge=torch.tensor(graph_df["idx"].values,dtype=torch.long)
 
     def __len__(self):
@@ -85,30 +84,45 @@ class TrainUtils:
             model_name:Literal[
                 "TGAT",
                 "TGN",
-                "DyGFormer"
+                "DyGFormer",
+                "CAW-N"
             ],
             graph_df:pd.DataFrame,
             node_ft:np.ndarray=None,
             edge_ft:np.ndarray=None,
             node_dim:int=32,
-            edge_dim:int=32
+            edge_dim:int=32,
+            **graph_config
         ):
-        if model_name=="DyGFormer":
-            graph=DyGFormer_Graph(
-                graph_df=graph_df,
-                node_ft=node_ft,
-                edge_ft=edge_ft,
-                node_dim=node_dim,
-                edge_dim=edge_dim
-            )
-        else: # TGAT, TGN
-            graph=GNN_Graph(
-                graph_df=graph_df,
-                node_ft=node_ft,
-                edge_ft=edge_ft,
-                node_dim=node_dim,
-                edge_dim=edge_dim
-            )
+        match model_name:
+            case "TGAT"|"TGN":
+                graph=GNN_Graph(
+                    graph_df=graph_df,
+                    node_ft=node_ft,
+                    edge_ft=edge_ft,
+                    node_dim=node_dim,
+                    edge_dim=edge_dim
+                )
+            case "DyGFormer":
+                graph=DyGFormer_Graph(
+                    graph_df=graph_df,
+                    node_ft=node_ft,
+                    edge_ft=edge_ft,
+                    node_dim=node_dim,
+                    edge_dim=edge_dim
+                )
+            case "CAW-N":
+                graph=CAW_N_Graph(
+                    graph_df=graph_df,
+                    node_ft=node_ft,
+                    edge_ft=edge_ft,
+                    node_dim=node_dim,
+                    edge_dim=edge_dim,
+                    n_walk=graph_config["n_walk"],
+                    walk_len=graph_config["walk_len"],
+                    alpha=graph_config["alpha"]
+                )
+
         return graph
 
     @staticmethod

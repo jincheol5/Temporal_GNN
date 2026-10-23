@@ -1,6 +1,6 @@
 import argparse
 from torch.utils.data import DataLoader
-from model import TGAT_LP,TGN_LP,DyGFormer_LP
+from model import TGAT_LP,TGN_LP,DyGFormer_LP,CAW_N_LP
 from model_train import ModelTrainer
 from utils import DataUtils,TrainUtils,TemporalGraphDataset,Sampler
 
@@ -10,9 +10,9 @@ def main(**kwargs):
     time_dim=32
     latent_dim=128
     embed_dim=32
-    n_layer=1
+    n_layer=2
     n_neighbor=10
-    n_head=3
+    n_head=4
 
     ### 학습 관련 파라미터
     seed=kwargs["seed"]
@@ -40,7 +40,8 @@ def main(**kwargs):
     if edge_dim==0:
         edge_dim=32
 
-    ### set model
+    ### set model and graph_config
+    graph_config={}
     match model_name:
         case "TGAT":
             model=TGAT_LP(
@@ -92,6 +93,27 @@ def main(**kwargs):
                 max_history_len=max_history_len,
                 patch_size=patch_size
             )
+        case "CAW-N":
+            # CAW-N 하이퍼 파라미터
+            n_walk=10
+            walk_len=3
+            alpha=0.0001
+            graph_config={
+                "n_walk":n_walk,
+                "walk_len":walk_len,
+                "alpha":alpha
+            }
+            model=CAW_N_LP(
+                node_dim=node_dim,
+                edge_dim=edge_dim,
+                latent_dim=latent_dim,
+                time_dim=time_dim,
+                embed_dim=embed_dim,
+                n_head=n_head,
+                n_walk=n_walk,
+                walk_len=walk_len,
+                alpha=alpha
+            )
 
     ### set graph
     graph=TrainUtils.generate_model_graph(
@@ -100,7 +122,8 @@ def main(**kwargs):
         node_ft=node_ft,
         edge_ft=edge_ft,
         node_dim=node_dim,
-        edge_dim=edge_dim
+        edge_dim=edge_dim,
+        **graph_config
     )
     model.set_graph(graph=graph)
 
@@ -113,7 +136,7 @@ def main(**kwargs):
 
     ### set train_sampler, val_sampler
     train_sampler=TrainUtils.set_sampler(dataset=train_dataset)
-    val_sampler=TrainUtils.set_sampler(dataset=val_dataset,seed=seed)
+    val_sampler=TrainUtils.set_sampler(dataset=val_dataset)
 
     ### set model_config
     model_config={
@@ -129,7 +152,7 @@ def main(**kwargs):
 
     ### train model
     match model_name:
-        case "TGAT"|"DyGFormer":
+        case "TGAT"|"DyGFormer"|"CAW-N":
             model=ModelTrainer.train(
                 model=model,
                 train_loader=train_loader,
@@ -146,7 +169,12 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--model_name",
         type=str,
-        choices=["TGAT","TGN","DyGFormer"],
+        choices=[
+            "TGAT",
+            "TGN",
+            "DyGFormer",
+            "CAW-N"
+        ],
         default=f"TGAT"
     )
     parser.add_argument("--seed",type=int,choices=[1,2,3],default=1)

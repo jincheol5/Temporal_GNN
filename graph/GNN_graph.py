@@ -119,8 +119,8 @@ class GNN_Graph(TemporalGraph):
 
         neighbor=torch.zeros((n_tar,n_neighbor),dtype=torch.long)
         neighbor_edge=torch.zeros((n_tar,n_neighbor),dtype=torch.long)
-        neighbor_t=torch.zeros((n_tar,n_neighbor),dtype=torch.float32)
-        neighbor_ts=torch.zeros((n_tar,n_neighbor),dtype=torch.float32)
+        neighbor_t=torch.zeros((n_tar,n_neighbor),dtype=torch.int64)
+        neighbor_ts=torch.zeros((n_tar,n_neighbor),dtype=torch.int64)
 
         tar=tar.detach().cpu().tolist()
         tar_t=tar_t.detach().cpu().tolist()
@@ -160,11 +160,11 @@ class GNN_Graph(TemporalGraph):
             )
             neighbor_t[i,offset:]=torch.as_tensor(
                 selected_times,
-                dtype=torch.float32
+                dtype=torch.int64
             )
             neighbor_ts[i,offset:]=torch.as_tensor(
                 cut_time-selected_times,
-                dtype=torch.float32
+                dtype=torch.int64
             )
         neighbor_mask=neighbor!=0
         return {

@@ -30,5 +30,7 @@ class TimeEncoder(nn.Module):
         Output:
             updated_timespan: [B,time_dim] or [B,N,time_dim]
         """
+        # Store/subtract timestamps as int64; cast only the resulting time gaps.
+        timespan=timespan.to(dtype=self.w.weight.dtype) # int64 -> float32로 변환
         output=torch.cos(self.w(timespan)) # [B,time_dim] or [B,N,time_dim]
         return output

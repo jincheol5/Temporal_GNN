@@ -26,7 +26,7 @@ class Memory(nn.Module):
         )
         self.register_buffer(
             "mem_t",
-            torch.zeros(self.n_node+1),
+            torch.zeros(self.n_node+1,dtype=torch.int64),
         )
         self.raw_msg_store=defaultdict(list)
         self.init_memory_state()

@@ -144,6 +144,7 @@ class ModelTrainer:
         acc_list=[]
         ap_list=[]
         auc_list=[]
+        val_sampler.set_random_state_seed(seed=kwargs["seed"])
         with torch.no_grad():
             for batch_event in tqdm(val_loader,desc=f"Validate..."):
                 src,dst,event_t,edge=batch_event

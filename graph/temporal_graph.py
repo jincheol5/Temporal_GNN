@@ -12,7 +12,7 @@ class TemporalGraph:
         self.n_node=int(max(graph_df["u"].max(),graph_df["i"].max()))
         self.bipartite=bipartite
         self.max_u=int(graph_df["u"].max())
-        self.max_t=float(graph_df["t"].max())
+        self.max_t=int(graph_df["t"].max())
 
         # incoming adj for GNN
         in_adj=[[] for _ in range(self.n_node+1)]
@@ -21,7 +21,7 @@ class TemporalGraph:
         for event in graph_df.itertuples(index=False): # col: [u,i,t,idx=edge_id]
             src=int(event.u)
             dst=int(event.i)
-            t=float(event.t)
+            t=int(event.t)
             edge_id=int(event.idx)
 
             # incoming adj 양방향 저장
@@ -44,6 +44,6 @@ class TemporalGraph:
             for values in in_adj_edge
         ]
         self.in_adj_t=[
-            np.asarray(values,dtype=np.float64)
+            np.asarray(values,dtype=np.int64)
             for values in in_adj_t
         ]

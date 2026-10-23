@@ -55,7 +55,7 @@ class DyGFormer_Graph(GNN_Graph):
                 event_t.cpu().numpy()
             ):
             node_id=int(node_id)
-            cut_time=float(cut_time)
+            cut_time=int(cut_time)
 
             # 해당 node의 과거 1-hop interaction
             neighbors=self.in_adj[node_id]
@@ -83,8 +83,8 @@ class DyGFormer_Graph(GNN_Graph):
                 selected_edges
             ])
             ts_seq=np.concatenate([
-                np.asarray([0.0],dtype=np.float32),
-                (cut_time-selected_times).astype(np.float32)
+                np.asarray([0],dtype=np.int64),
+                (cut_time-selected_times).astype(np.int64)
             ])
             node_seq_list.append(node_seq)
             edge_seq_list.append(edge_seq)

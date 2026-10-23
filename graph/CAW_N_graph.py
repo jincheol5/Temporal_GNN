@@ -27,7 +27,7 @@ class CAW_N_Graph(GNN_Graph):
 
     def _get_walks(self,
             root:int,
-            root_t:float
+            root_t:int
         ):
         """
         Temporal Walk for Causality Extraction.
@@ -40,14 +40,15 @@ class CAW_N_Graph(GNN_Graph):
         
         Return:
             walks: list of walk (size = n_walk)
-                walk: list of (node_id, time) (len = walk_len + 1, (root,root_t) 포함)
-                과거 이력이 없으면 남은 위치는 (0,0.0)으로 padding.
+                walk: list of (node_id, time, edge_id) (len = walk_len + 1, 시작 위치 포함)
+                과거 이력이 없으면 남은 위치는 (0,0,0)으로 padding.
+                시작 위치와 padding의 incoming_edge_id는 0.
         """
         walks=[]
         for _ in range(self.n_walk):
-            walk=[(0,0.0)]*(self.walk_len+1)
-            node,cut_time=int(root),float(root_t)
-            walk[0]=(node,cut_time)
+            walk=[(0,0,0)]*(self.walk_len+1)
+            node,cut_time=int(root),int(root_t)
+            walk[0]=(node,cut_time,0)
             for step in range(1,self.walk_len+1):
                 history_times=self.in_adj_t[node]
                 cut_idx=int(np.searchsorted(history_times,cut_time,side="left"))
@@ -64,8 +65,9 @@ class CAW_N_Graph(GNN_Graph):
                         weights=np.exp(log_weights)
                     probabilities=weights/weights.sum()
                     selected=int(np.random.choice(cut_idx,p=probabilities))
-                node,cut_time=int(self.in_adj[node][selected]),float(history_times[selected]) # 선택한 link의 시각을 다음 탐색의 기준 시각으로 사용
-                walk[step]=(node,cut_time)
+                edge_id=int(self.in_adj_edge[node][selected])
+                node,cut_time=int(self.in_adj[node][selected]),int(history_times[selected]) # 선택한 link의 시각을 다음 탐색의 기준 시각으로 사용
+                walk[step]=(node,cut_time,edge_id)
             walks.append(walk)
         return walks
 
@@ -80,7 +82,7 @@ class CAW_N_Graph(GNN_Graph):
             alpha: finite non-negative recency bias (0 means uniform sampling).
         Return:
             batch_node_walks: (batch_size,n_walk,walk_len+1) list
-                각 원소는 (node_id, time) 튜플이며 입력 node 순서를 유지.
+                각 원소는 (node_id, time, edge_id) 튜플이며 입력 node 순서를 유지.
                 빈 배치이면 빈 list 반환.
         """
         
@@ -106,7 +108,7 @@ class CAW_N_Graph(GNN_Graph):
         if target_node==0:
             return anonymizated_vec
         for walk in walks:
-            for step,(node_id,_) in enumerate(walk):
+            for step,(node_id,*_) in enumerate(walk):
                 if node_id==target_node:
                     anonymizated_vec[step]+=1
         return anonymizated_vec
@@ -126,6 +128,8 @@ class CAW_N_Graph(GNN_Graph):
             batch_dst_caws: (B, n_walk, walk_len+1) list
             caws element = (anonymizated_vec_set,time) = ([2,anonymizated_vec] tensor, time)
                 src_anonymizated_vec and dst_anonymizated_vec is stacked to anonymizated_vec_set using torch.stack 
+            batch_src_walks
+            batch_dst_walks
         """
         batch_src_caws=[]
         batch_dst_caws=[]
@@ -136,7 +140,7 @@ class CAW_N_Graph(GNN_Graph):
                 node_id 
                 for walks in (src_walks,dst_walks)
                 for walk in walks 
-                for node_id,_ in walk
+                for node_id,*_ in walk
                 if node_id!=0
             }
             anonymizated_vec_set_dict={
@@ -148,11 +152,16 @@ class CAW_N_Graph(GNN_Graph):
             }
             anonymizated_vec_set_dict[0]=torch.zeros((2,self.walk_len+1),dtype=torch.float32) # padding node 처리
             batch_src_caws.append([
-                [(anonymizated_vec_set_dict[node_id],time) for node_id,time in walk]
+                [(anonymizated_vec_set_dict[node_id],time) for node_id,time,_ in walk]
                 for walk in src_walks
             ])
             batch_dst_caws.append([
-                [(anonymizated_vec_set_dict[node_id],time) for node_id,time in walk]
+                [(anonymizated_vec_set_dict[node_id],time) for node_id,time,_ in walk]
                 for walk in dst_walks
             ])
-        return batch_src_caws,batch_dst_caws
+        return {
+            "batch_src_caws":batch_src_caws,
+            "batch_src_walks":batch_src_walks,
+            "batch_dst_caws":batch_dst_caws,
+            "batch_dst_walks":batch_dst_walks
+        }
