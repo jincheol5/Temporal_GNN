@@ -27,7 +27,7 @@ class TPNet_Matrix(nn.Module):
 
     def init_random_ft(self):
         """
-        NRM representation 초기화.
+        Node Representation Maintaining (NRM) 초기화.
 
         random_ft: [walk_len+1, n_node+1, random_ft_dim]
             random_ft[0]: 실제 노드의 0-hop representation, N(0, 1/random_ft_dim).
@@ -45,8 +45,14 @@ class TPNet_Matrix(nn.Module):
         self.graph=graph
         self.n_node=graph.n_node
 
-    def random_ft_propagation(self,
-
+    @torch.no_grad()
+    def update_random_ft(self,
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor
         ):
         """
+
         """
+        # for hop in range(self.walk_len,0,-1):
+
