@@ -257,7 +257,7 @@ class ModelTrainer:
                 ) # [2B,]
 
                 ### ACC
-                batch_acc=Metric.compute_accuracy(
+                batch_acc=Metric.compute_ACC(
                     pred_logit=pred_logit,
                     label=label
                 )

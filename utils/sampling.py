@@ -6,7 +6,10 @@ class Sampler:
     Train
     - train eventstream에서 등장한 dst들을 후보로 사용.  
     
-    Val/Test
+    Val
+    - train, val eventstream에서 등장한 dst들을 후보로 사용.  
+
+    Test
     - all eventstream에서 등장한 dst들을 후보로 사용.
     """
     def __init__(self,

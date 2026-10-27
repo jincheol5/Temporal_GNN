@@ -85,7 +85,8 @@ class TrainUtils:
                 "TGAT",
                 "TGN",
                 "DyGFormer",
-                "CAW-N"
+                "CAW-N",
+                "TPNet"
             ],
             graph_df:pd.DataFrame,
             node_ft:np.ndarray=None,
@@ -95,7 +96,7 @@ class TrainUtils:
             **graph_config
         ):
         match model_name:
-            case "TGAT"|"TGN":
+            case "TGAT"|"TGN"|"TPNet":
                 graph=GNN_Graph(
                     graph_df=graph_df,
                     node_ft=node_ft,
@@ -151,10 +152,24 @@ class TrainUtils:
 
     @staticmethod
     def set_sampler(
-            dataset:TemporalGraphDataset,
+            graph_df:pd.DataFrame,
+            purpose:Literal["train","val","test"],
             seed:int|None=None
         ):
-        dst_list=dataset.dst.tolist()
+        train_df,val_df,test_df=TrainUtils.split_graph_df(graph_df=graph_df)
+        match purpose:
+            case "train":
+                train_dataset=TemporalGraphDataset(graph_df=train_df)
+                dst_list=train_dataset.dst.tolist()
+            case "val":
+                train_dataset=TemporalGraphDataset(graph_df=train_df)
+                val_dataset=TemporalGraphDataset(graph_df=val_df)
+                dst_list=train_dataset.dst.tolist()+val_dataset.dst.tolist()
+            case "test":
+                train_dataset=TemporalGraphDataset(graph_df=train_df)
+                val_dataset=TemporalGraphDataset(graph_df=val_df)
+                test_dataset=TemporalGraphDataset(graph_df=test_df)
+                dst_list=train_dataset.dst.tolist()+val_dataset.dst.tolist()+test_dataset.dst.tolist()
         if seed is None:
             sampler=Sampler(dst_list=dst_list)
         else:

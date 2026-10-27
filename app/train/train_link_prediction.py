@@ -1,7 +1,7 @@
 import argparse
 from torch.utils.data import DataLoader
 from model import TGAT,TGN,DyGFormer,CAW_N,TPNet
-from model_train import ModelTrainer
+from model_train import ModelTrainer,TPNet_Trainer
 from utils import DataUtils,TrainUtils,TemporalGraphDataset,Sampler
 
 def main(**kwargs):
@@ -114,6 +114,25 @@ def main(**kwargs):
                 walk_len=walk_len,
                 alpha=alpha
             )
+        case "TPNet":
+            # TPNet 하이퍼 파라미터
+            random_ft_dim=128
+            walk_len=3
+            time_decay_coef=0.0001
+            n_last_event=10
+            mlp_mixer_n_layer=2
+            model=TPNet(
+                node_dim=node_dim,
+                edge_dim=edge_dim,
+                time_dim=time_dim,
+                latent_dim=latent_dim,
+                random_ft_dim=random_ft_dim,
+                embed_dim=embed_dim,
+                walk_len=walk_len,
+                time_decay_coef=time_decay_coef,
+                n_last_event=n_last_event,
+                mlp_mixer_n_layer=mlp_mixer_n_layer
+            )
 
     ### set graph
     graph=TrainUtils.generate_model_graph(
@@ -135,8 +154,8 @@ def main(**kwargs):
     val_loader=DataLoader(dataset=val_dataset,batch_size=batch_size,shuffle=False)
 
     ### set train_sampler, val_sampler
-    train_sampler=TrainUtils.set_sampler(dataset=train_dataset)
-    val_sampler=TrainUtils.set_sampler(dataset=val_dataset)
+    train_sampler=TrainUtils.set_sampler(graph_df=graph_df,purpose="train")
+    val_sampler=TrainUtils.set_sampler(graph_df=graph_df,purpose=f"val",seed=seed)
 
     ### set model_config
     model_config={
@@ -154,6 +173,15 @@ def main(**kwargs):
     match model_name:
         case "TGAT"|"DyGFormer"|"CAW-N":
             model=ModelTrainer.train(
+                model=model,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                train_sampler=train_sampler,
+                val_sampler=val_sampler,
+                **model_config
+            )
+        case "TPNet":
+            model=TPNet_Trainer.train(
                 model=model,
                 train_loader=train_loader,
                 val_loader=val_loader,
