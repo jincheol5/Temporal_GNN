@@ -5,3 +5,4 @@ from .mem_module import *
 from .decoder_module import *
 from .mlp_module import *
 from .DyGFormer_module import *
+from .TPNet_module import *

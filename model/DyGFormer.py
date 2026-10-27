@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from graph import DyGFormer_Graph
-from module import TimeEncoder,TransformerEncoderBlock,DyGFormer_Module,Link_Predictor
+from module import TimeEncoder,TransformerEncoderBlock,DyGFormer_Module,MLP
 
 class DyGFormer(nn.Module):
     def __init__(self,
@@ -78,6 +78,13 @@ class DyGFormer(nn.Module):
         self.output_layer=nn.Linear(
             in_features=4*common_dim,
             out_features=embed_dim
+        )
+
+        # decoder
+        self.decoder=MLP(
+            input_dim=2*embed_dim,
+            latent_dim=latent_dim,
+            output_dim=1
         )
 
     def set_graph(self,graph:DyGFormer_Graph):
@@ -250,40 +257,6 @@ class DyGFormer(nn.Module):
             "dst_vec":dst_h
         }
 
-class DyGFormer_LP(DyGFormer):
-    def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            latent_dim:int,
-            time_dim:int,
-            co_dim:int,
-            common_dim:int,
-            embed_dim:int,
-            n_layer:int,
-            n_head:int,
-            max_history_len:int,
-            patch_size:int
-        ):
-        super(DyGFormer_LP,self).__init__(
-            node_dim=node_dim,
-            edge_dim=edge_dim,
-            latent_dim=latent_dim,
-            time_dim=time_dim,
-            co_dim=co_dim,
-            common_dim=common_dim,
-            embed_dim=embed_dim,
-            n_layer=n_layer,
-            n_head=n_head,
-            max_history_len=max_history_len,
-            patch_size=patch_size
-        )
-
-        # decoder
-        self.decoder=Link_Predictor(
-            embed_dim=embed_dim,
-            latent_dim=latent_dim
-        )
-
     def forward(self,
             src:torch.Tensor,
             dst:torch.Tensor,
@@ -301,3 +274,4 @@ class DyGFormer_LP(DyGFormer):
             dst_vec=dst_vec
         ) # [B,1]
         return pred_logit.squeeze(-1) # [B,]
+

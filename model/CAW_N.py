@@ -54,6 +54,20 @@ class CAW_N(nn.Module):
             batch_first=True
         )
 
+        # decoder
+        # CAW_N decoder for link prediction
+        self.decoder=nn.Sequential(
+            nn.Linear(
+                in_features=embed_dim,
+                out_features=latent_dim
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                in_features=latent_dim,
+                out_features=1
+            )
+        )
+
     def set_graph(self,graph:CAW_N_Graph):
         self.graph=graph
         self.n_node=graph.n_node
@@ -193,43 +207,6 @@ class CAW_N(nn.Module):
         pair_vec=batch_walk_vec.mean(dim=1) # [B,embed_dim]
         return pair_vec
 
-class CAW_N_LP(CAW_N):
-    def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            latent_dim:int,
-            time_dim:int,
-            embed_dim:int,
-            n_head:int,
-            n_walk:int,
-            walk_len:int,
-            alpha:float=0.0
-        ):
-        super(CAW_N_LP,self).__init__(
-            node_dim=node_dim,
-            edge_dim=edge_dim,
-            latent_dim=latent_dim,
-            time_dim=time_dim,
-            embed_dim=embed_dim,
-            n_head=n_head,
-            n_walk=n_walk,
-            walk_len=walk_len,
-            alpha=alpha
-        )
-
-        # CAW_N decoder for link prediction
-        self.decoder=nn.Sequential(
-            nn.Linear(
-                in_features=embed_dim,
-                out_features=latent_dim
-            ),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=latent_dim,
-                out_features=1
-            )
-        )
-
     def forward(self,
             src:torch.Tensor,
             dst:torch.Tensor,
@@ -242,3 +219,4 @@ class CAW_N_LP(CAW_N):
         ) # [B,embed_dim]
         pred_logit=self.decoder(pair_vec) # [B,1]
         return pred_logit.squeeze(-1) # [B,]
+

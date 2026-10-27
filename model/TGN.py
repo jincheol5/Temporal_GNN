@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing_extensions import Literal
 from graph import GNN_Graph
-from module import TimeEncoder,Memory,GraphAttnEmbedding,GRUMemoryUpdater,Link_Predictor
+from module import TimeEncoder,Memory,GraphAttnEmbedding,GRUMemoryUpdater,MLP
 
 class TGN(nn.Module):
     def __init__(self,
@@ -63,6 +63,13 @@ class TGN(nn.Module):
             time_encoder=self.time_encoder
         )
 
+        # decoder
+        self.decoder=MLP(
+            input_dim=2*embed_dim,
+            latent_dim=latent_dim,
+            output_dim=1
+        )
+
     def set_graph(self,graph:GNN_Graph):
         self.graph=graph
         self.n_node=graph.n_node
@@ -111,39 +118,25 @@ class TGN(nn.Module):
         )
         return embedded_tar_vec
 
-class TGN_LP(TGN):
-    def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            time_dim:int,
-            latent_dim:int,
-            msg_dim:int,
-            mem_dim:int,
-            embed_dim:int,
-            n_layer:int,
-            n_neighbor:int,
-            n_head:int,
-            msg_fn:Literal["concat","mlp"]="concat",
-            aggr_fn:Literal["last","mean"]="last"
+    def forward(self,
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor
         ):
-        super(TGN_LP,self).__init__(
-            node_dim=node_dim,
-            edge_dim=edge_dim,
-            time_dim=time_dim,
-            latent_dim=latent_dim,
-            msg_dim=msg_dim,
-            mem_dim=mem_dim,
-            embed_dim=embed_dim,
-            n_layer=n_layer,
-            n_neighbor=n_neighbor,
-            n_head=n_head,
-            msg_fn=msg_fn,
-            aggr_fn=aggr_fn
+        ### embedding
+        batch_size=src.size(0) 
+        tar=torch.concat([src,dst],dim=0) 
+        tar_t=torch.cat([event_t,event_t],dim=0)
+        embedded_tar_vec=self.embedding(
+            tar=tar,
+            tar_t=tar_t
         )
+        src_vec=embedded_tar_vec[:batch_size]
+        dst_vec=embedded_tar_vec[batch_size:]
 
-        # decoder
-        self.decoder=Link_Predictor(
-            embed_dim=embed_dim,
-            latent_dim=latent_dim
-        )
-
+        ### decode 
+        pred_logit=self.decoder(
+            src_vec=src_vec,
+            dst_vec=dst_vec
+        ) # [B,1]
+        return pred_logit.squeeze(-1) # [B,]

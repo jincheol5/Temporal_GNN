@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from graph import GNN_Graph
-from module import TimeEncoder,GraphAttnEmbedding,Link_Predictor
+from module import TimeEncoder,GraphAttnEmbedding,MLP
 
 class TGAT(nn.Module):
     def __init__(self,
@@ -41,6 +41,13 @@ class TGAT(nn.Module):
             time_encoder=self.time_encoder
         )
 
+        # decoder
+        self.decoder=MLP(
+            input_dim=2*embed_dim,
+            latent_dim=latent_dim,
+            output_dim=1
+        )
+
     def set_graph(self,graph:GNN_Graph):
         self.graph=graph
         self.n_node=graph.n_node
@@ -56,34 +63,6 @@ class TGAT(nn.Module):
             n_layer=self.n_layer
         )
         return embedded_tar_vec
-
-class TGAT_LP(TGAT):
-    def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            time_dim:int,
-            latent_dim:int,
-            embed_dim:int,
-            n_layer:int,
-            n_neighbor:int,
-            n_head:int
-        ):
-        super(TGAT_LP,self).__init__(
-            node_dim=node_dim,
-            edge_dim=edge_dim,
-            time_dim=time_dim,
-            latent_dim=latent_dim,
-            embed_dim=embed_dim,
-            n_layer=n_layer,
-            n_neighbor=n_neighbor,
-            n_head=n_head
-        )
-
-        # decoder
-        self.decoder=Link_Predictor(
-            embed_dim=embed_dim,
-            latent_dim=latent_dim
-        )
 
     def forward(self,
             src:torch.Tensor,

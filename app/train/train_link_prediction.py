@@ -1,6 +1,6 @@
 import argparse
 from torch.utils.data import DataLoader
-from model import TGAT_LP,TGN_LP,DyGFormer_LP,CAW_N_LP
+from model import TGAT,TGN,DyGFormer,CAW_N,TPNet
 from model_train import ModelTrainer
 from utils import DataUtils,TrainUtils,TemporalGraphDataset,Sampler
 
@@ -44,7 +44,7 @@ def main(**kwargs):
     graph_config={}
     match model_name:
         case "TGAT":
-            model=TGAT_LP(
+            model=TGAT(
                 node_dim=node_dim,
                 edge_dim=edge_dim,
                 time_dim=time_dim,
@@ -60,7 +60,7 @@ def main(**kwargs):
             mem_dim=32
             msg_fn=f"mlp"
             aggr_fn=f"mean"
-            model=TGN_LP(
+            model=TGN(
                 node_dim=node_dim,
                 edge_dim=edge_dim,
                 time_dim=time_dim,
@@ -80,7 +80,7 @@ def main(**kwargs):
             common_dim=32
             max_history_len=10
             patch_size=5
-            model=DyGFormer_LP(
+            model=DyGFormer(
                 node_dim=node_dim,
                 edge_dim=edge_dim,
                 latent_dim=latent_dim,
@@ -103,7 +103,7 @@ def main(**kwargs):
                 "walk_len":walk_len,
                 "alpha":alpha
             }
-            model=CAW_N_LP(
+            model=CAW_N(
                 node_dim=node_dim,
                 edge_dim=edge_dim,
                 latent_dim=latent_dim,
@@ -173,7 +173,8 @@ if __name__=="__main__":
             "TGAT",
             "TGN",
             "DyGFormer",
-            "CAW-N"
+            "CAW-N",
+            "TPNet"
         ],
         default=f"TGAT"
     )
