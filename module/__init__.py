@@ -2,7 +2,8 @@ from .time_module import *
 from .attn_module import *
 from .embed_module import *
 from .mem_module import *
-from .decoder_module import *
 from .mlp_module import *
+from .mixer_module import *
+from .GraphMixer_module import *
 from .DyGFormer_module import *
 from .TPNet_module import *

@@ -269,9 +269,9 @@ class DyGFormer(nn.Module):
         )
         src_vec=embedded_vec["src_vec"]
         dst_vec=embedded_vec["dst_vec"]
-        pred_logit=self.decoder(
-            src_vec=src_vec,
-            dst_vec=dst_vec
-        ) # [B,1]
+
+        ### decode 
+        pair_vec=torch.concat([src_vec,dst_vec],dim=-1)
+        pred_logit=self.decoder(pair_vec) # [B,1]
         return pred_logit.squeeze(-1) # [B,]
 

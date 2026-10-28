@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from graph import GNN_Graph
-from module import TimeEncoder,MLP,MLPMixerBlock,TPNet_Matrix
+from module import TimeEncoder,MLP,TPNet_MLPMixerBlock,TPNet_Matrix
 
 class TPNet(nn.Module):
     def __init__(self,
@@ -47,7 +47,7 @@ class TPNet(nn.Module):
 
         # MLP-Mixer for Auxiliary Feature Learning
         self.mixers=nn.ModuleList([
-            MLPMixerBlock(n_token=n_last_event,embed_dim=embed_dim)
+            TPNet_MLPMixerBlock(n_token=n_last_event,embed_dim=embed_dim)
             for _ in range(mlp_mixer_n_layer)
         ])
 

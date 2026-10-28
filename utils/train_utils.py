@@ -84,8 +84,9 @@ class TrainUtils:
             model_name:Literal[
                 "TGAT",
                 "TGN",
-                "DyGFormer",
                 "CAW-N",
+                "GraphMixer",
+                "DyGFormer",
                 "TPNet"
             ],
             graph_df:pd.DataFrame,
@@ -104,13 +105,14 @@ class TrainUtils:
                     node_dim=node_dim,
                     edge_dim=edge_dim
                 )
-            case "DyGFormer":
-                graph=DyGFormer_Graph(
+            case "GraphMixer":
+                graph=GNN_Graph(
                     graph_df=graph_df,
                     node_ft=node_ft,
                     edge_ft=edge_ft,
                     node_dim=node_dim,
-                    edge_dim=edge_dim
+                    edge_dim=edge_dim,
+                    one_hot=True
                 )
             case "CAW-N":
                 graph=CAW_N_Graph(
@@ -123,7 +125,14 @@ class TrainUtils:
                     walk_len=graph_config["walk_len"],
                     alpha=graph_config["alpha"]
                 )
-
+            case "DyGFormer":
+                graph=DyGFormer_Graph(
+                    graph_df=graph_df,
+                    node_ft=node_ft,
+                    edge_ft=edge_ft,
+                    node_dim=node_dim,
+                    edge_dim=edge_dim
+                )
         return graph
 
     @staticmethod

@@ -1,6 +1,6 @@
 import argparse
 from torch.utils.data import DataLoader
-from model import TGAT,TGN,DyGFormer,CAW_N,TPNet
+from model import TGAT,TGN,CAW_N,GraphMixer,DyGFormer,TPNet
 from model_train import ModelTrainer,TPNet_Trainer
 from utils import DataUtils,TrainUtils,TemporalGraphDataset,Sampler
 
@@ -74,25 +74,6 @@ def main(**kwargs):
                 msg_fn=msg_fn,
                 aggr_fn=aggr_fn
             )
-        case "DyGFormer":
-            ### DyGFormer 하이퍼 파라미터
-            co_dim=32
-            common_dim=32
-            max_history_len=10
-            patch_size=5
-            model=DyGFormer(
-                node_dim=node_dim,
-                edge_dim=edge_dim,
-                latent_dim=latent_dim,
-                time_dim=time_dim,
-                co_dim=co_dim,
-                common_dim=common_dim,
-                embed_dim=embed_dim,
-                n_layer=n_layer,
-                n_head=n_head,
-                max_history_len=max_history_len,
-                patch_size=patch_size
-            )
         case "CAW-N":
             # CAW-N 하이퍼 파라미터
             n_walk=10
@@ -113,6 +94,36 @@ def main(**kwargs):
                 n_walk=n_walk,
                 walk_len=walk_len,
                 alpha=alpha
+            )
+        case "GraphMixer":
+            ### GraphMixer 하이퍼 파라미터
+            n_last_event=10
+            model=GraphMixer(
+                node_dim=node_dim,
+                edge_dim=edge_dim,
+                time_dim=time_dim,
+                latent_dim=latent_dim,
+                embed_dim=embed_dim,
+                n_last_event=n_last_event
+            )
+        case "DyGFormer":
+            ### DyGFormer 하이퍼 파라미터
+            co_dim=32
+            common_dim=32
+            max_history_len=10
+            patch_size=5
+            model=DyGFormer(
+                node_dim=node_dim,
+                edge_dim=edge_dim,
+                latent_dim=latent_dim,
+                time_dim=time_dim,
+                co_dim=co_dim,
+                common_dim=common_dim,
+                embed_dim=embed_dim,
+                n_layer=n_layer,
+                n_head=n_head,
+                max_history_len=max_history_len,
+                patch_size=patch_size
             )
         case "TPNet":
             # TPNet 하이퍼 파라미터
@@ -171,7 +182,7 @@ def main(**kwargs):
 
     ### train model
     match model_name:
-        case "TGAT"|"DyGFormer"|"CAW-N":
+        case "TGAT"|"CAW-N"|"GraphMixer"|"DyGFormer":
             model=ModelTrainer.train(
                 model=model,
                 train_loader=train_loader,
@@ -200,8 +211,9 @@ if __name__=="__main__":
         choices=[
             "TGAT",
             "TGN",
-            "DyGFormer",
             "CAW-N",
+            "GraphMixer",
+            "DyGFormer",
             "TPNet"
         ],
         default=f"TGAT"

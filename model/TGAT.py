@@ -54,15 +54,24 @@ class TGAT(nn.Module):
         self.encoder.set_graph(graph=graph)
 
     def embedding(self,
-            tar:torch.Tensor,
-            tar_t:torch.Tensor
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor
         ):
+        batch_size=src.size(0) 
+        tar=torch.concat([src,dst],dim=0) 
+        tar_t=torch.cat([event_t,event_t],dim=0)
         embedded_tar_vec=self.encoder.compute_embedding(
             tar=tar,
             tar_t=tar_t,
             n_layer=self.n_layer
         )
-        return embedded_tar_vec
+        src_vec=embedded_tar_vec[:batch_size]
+        dst_vec=embedded_tar_vec[batch_size:]
+        return {
+            "src_vec":src_vec,
+            "tst_vec":dst_vec
+        }
 
     def forward(self,
             src:torch.Tensor,
@@ -70,19 +79,15 @@ class TGAT(nn.Module):
             event_t:torch.Tensor
         ):
         ### embedding
-        batch_size=src.size(0) 
-        tar=torch.concat([src,dst],dim=0) 
-        tar_t=torch.cat([event_t,event_t],dim=0)
-        embedded_tar_vec=self.embedding(
-            tar=tar,
-            tar_t=tar_t
+        embedded_vec=self.embedding(
+            src=src,
+            dst=dst,
+            event_t=event_t
         )
-        src_vec=embedded_tar_vec[:batch_size]
-        dst_vec=embedded_tar_vec[batch_size:]
+        src_vec=embedded_vec["src_vec"]
+        dst_vec=embedded_vec["dst_vec"]
 
         ### decode 
-        pred_logit=self.decoder(
-            src_vec=src_vec,
-            dst_vec=dst_vec
-        ) # [B,1]
+        pair_vec=torch.concat([src_vec,dst_vec],dim=-1)
+        pred_logit=self.decoder(pair_vec) # [B,1]
         return pred_logit.squeeze(-1) # [B,]

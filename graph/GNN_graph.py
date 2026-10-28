@@ -9,13 +9,11 @@ class GNN_Graph(TemporalGraph):
             node_ft:np.ndarray=None,
             edge_ft:np.ndarray=None,
             node_dim:int=32,
-            edge_dim:int=32
+            edge_dim:int=32,
+            one_hot:bool=False
         ):
         super().__init__(graph_df=graph_df,)
-        if node_ft is None: 
-            self.set_node_ft(node_dim=node_dim)
-        else: 
-            self.set_node_ft(node_ft=node_ft)
+        self.set_node_ft(node_ft=node_ft,node_dim=node_dim,one_hot=one_hot)
         if edge_ft is None: 
             self.set_edge_ft(edge_dim=edge_dim)
         else: 
@@ -27,7 +25,8 @@ class GNN_Graph(TemporalGraph):
 
     def set_node_ft(self,
             node_ft:np.ndarray=None,
-            node_dim:int=32
+            node_dim:int=32,
+            one_hot:bool=False
         ):
         """
         Input:
@@ -35,8 +34,17 @@ class GNN_Graph(TemporalGraph):
                 np.ndarray of shape (n_node+1, node_dim) 또는 None.
                 0번째 행은 padding node feature (zero vector).
             node_dim: int
+            one_hot: True이면 node_ft, node_dim 대신 n_node 차원의 원 핫 벡터 생성.
+                node_id=i (1~n_node)는 i-1번째 원소가 1, node_id=0은 제로 벡터.
         """
-        if node_ft is None:
+        if one_hot:
+            self.node_dim=self.n_node
+            self.node_ft=torch.zeros(
+                (self.n_node+1,self.node_dim),
+                dtype=torch.float32
+            )
+            self.node_ft[1:].diagonal().fill_(1)
+        elif node_ft is None:
             self.node_dim=node_dim
             self.node_ft=torch.zeros(
                 (self.n_node+1,node_dim),
