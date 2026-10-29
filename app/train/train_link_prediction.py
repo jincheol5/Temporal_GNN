@@ -2,7 +2,7 @@ import argparse
 from torch.utils.data import DataLoader
 from model import TGAT,TGN,CAW_N,GraphMixer,DyGFormer,TPNet
 from model_train import ModelTrainer,TPNet_Trainer
-from utils import DataUtils,TrainUtils,TemporalGraphDataset,Sampler
+from utils import DataUtils,TrainUtils,TemporalGraphDataset
 
 def main(**kwargs):
     ### 모델 관련 파라미터

@@ -21,7 +21,7 @@ class DataUtils:
         1. Load graph_df, node_ft, edge_ft
         2. Check bipartite
         3. Preprocess timestamp to unix timestamp second 
-        4. Remove self-loop, 중복 edge_event and timestamp 기준으로 오름차순 정렬
+        4. Remove self-loop, timestamp 기준으로 오름차순 정렬
         5. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
         6. Remap edge_id
         7. Remap node_id
@@ -50,11 +50,9 @@ class DataUtils:
             .astype(np.int64)
         )
 
-        ### 4. Remove self-loop, 중복 edge_event and timestamp 기준으로 오름차순 정렬 
-        # 동일한 시각의 동일한 방향 edge(u -> i)는 하나만 유지
+        ### 4. Remove self-loop, timestamp 기준으로 오름차순 정렬 
         graph_df=(
             graph_df[graph_df["u"]!=graph_df["i"]]
-            .drop_duplicates(subset=["u","i","t"],keep="first")
             .sort_values(by="t",kind="stable")
             .reset_index(drop=True)
         )
@@ -117,7 +115,7 @@ class DataUtils:
         2. Load graph_df (node_ft, edge_ft if exists.)
         3. Preprocess bipartite graph dataset
         4. Preprocess timestamp to unix timestamp second 
-        5. Remove self-loop, 중복 edge_event and timestamp 기준으로 오름차순 정렬
+        5. Remove self-loop, timestamp 기준으로 오름차순 정렬
         6. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
         7. Remap edge_id
         8. Remap node_id
@@ -161,10 +159,9 @@ class DataUtils:
             .astype(np.int64)
         )
 
-        ### 5. Remove self-loop, 중복 edge_event and timestamp 기준으로 오름차순 정렬
+        ### 5. Remove self-loop and timestamp 기준으로 오름차순 정렬
         graph_df=(
             graph_df[graph_df["u"]!=graph_df["i"]]
-            .drop_duplicates(subset=["u","i","t"],keep="first")
             .sort_values(by="t",kind="stable")
             .reset_index(drop=True)
         )
