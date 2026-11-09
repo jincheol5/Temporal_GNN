@@ -6,16 +6,22 @@ from .GNN_graph import GNN_Graph
 class CAW_N_Graph(GNN_Graph):
     def __init__(self,
             graph_df:pd.DataFrame,
+            directed:bool=False,
+            bipartite:bool=False,
+            one_hot:bool=False,
             node_ft:np.ndarray=None,
             edge_ft:np.ndarray=None,
-            node_dim:int=32,
-            edge_dim:int=32,
+            node_dim:int=172,
+            edge_dim:int=172,
             n_walk:int=10,
             walk_len:int=5,
             alpha:float=0.0
         ):
         super().__init__(
             graph_df=graph_df,
+            directed=directed,
+            bipartite=bipartite,
+            one_hot=one_hot,
             node_ft=node_ft,
             edge_ft=edge_ft,
             node_dim=node_dim,

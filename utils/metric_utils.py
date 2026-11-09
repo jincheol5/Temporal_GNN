@@ -1,7 +1,7 @@
 import torch
 from sklearn.metrics import average_precision_score,roc_auc_score
 
-class Metric:
+class MetricUtils:
     @staticmethod
     def compute_ACC(
             pred_logit:torch.Tensor,

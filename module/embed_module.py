@@ -6,27 +6,23 @@ from .attn_module import TemporalGraphAttn
 
 class GraphEmbeddingModule(nn.Module):
     def __init__(self,
-            node_dim:int=32,
-            edge_dim:int=32,
-            time_dim:int=32,
-            latent_dim:int=32, 
-            mem_dim:int=32,
-            embed_dim:int=32,
-            n_layer:int=1,
-            n_neighbor:int=5,
-            use_last_state:bool=False,
-            use_memory:bool=False,
-            time_encoder:TimeEncoder=None
+            node_dim:int,
+            edge_dim:int,
+            time_dim:int,
+            mem_dim:int,
+            embed_dim:int,
+            n_layer:int,
+            n_neighbor:int,
+            time_encoder:TimeEncoder,
+            use_memory:bool=False
         ):
         super().__init__()
         self.node_dim=node_dim
         self.edge_dim=edge_dim
-        self.latent_dim=latent_dim
         self.embed_dim=embed_dim
         self.time_dim=time_dim
         self.n_layer=n_layer
         self.n_neighbor=n_neighbor
-        self.use_last_state=use_last_state
         self.use_memory=use_memory
         if use_memory:
             self.mem_dim=mem_dim
@@ -54,7 +50,7 @@ class GraphEmbeddingModule(nn.Module):
             updated_tar_ft: [n_tar,output_dim]
         """
         ### set tar_ft
-        tar_ft=self.graph.get_node_ft(node=tar) # [n_tar,node_dim]
+        tar_ft=self.graph.node_ft[tar] # [n_tar,node_dim]
 
         ### set tar_mem
         if self.use_memory and mem_vec is not None:
@@ -135,29 +131,27 @@ class GraphEmbeddingModule(nn.Module):
 
 class GraphAttnEmbedding(GraphEmbeddingModule):
     def __init__(self,
-            node_dim:int=32,
-            edge_dim:int=32,
-            time_dim:int=32,
-            latent_dim:int=32,
-            mem_dim:int=32, 
-            embed_dim:int=32,
-            n_layer:int=1,
-            n_neighbor:int=5,
-            n_head:int=1,
-            use_memory:bool=False,
-            time_encoder:TimeEncoder=None
+            node_dim:int,
+            edge_dim:int,
+            time_dim:int,
+            mem_dim:int, 
+            embed_dim:int,
+            n_layer:int,
+            n_neighbor:int,
+            n_head:int,
+            time_encoder:TimeEncoder,
+            use_memory:bool=False
         ):
         super(GraphAttnEmbedding,self).__init__(
             node_dim=node_dim,
             edge_dim=edge_dim,
             time_dim=time_dim,
-            latent_dim=latent_dim,
             mem_dim=mem_dim,
             embed_dim=embed_dim,
             n_layer=n_layer,
             n_neighbor=n_neighbor,
-            use_memory=use_memory,
-            time_encoder=time_encoder
+            time_encoder=time_encoder,
+            use_memory=use_memory
         )
         # module
         layer_0_input_dim=node_dim+(mem_dim if self.use_memory else 0)
@@ -166,9 +160,8 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
                 TemporalGraphAttn(
                     input_dim=layer_0_input_dim if idx==0 else embed_dim,
                     edge_dim=edge_dim,
-                    latent_dim=latent_dim,
-                    embed_dim=embed_dim,
                     time_dim=time_dim,
+                    embed_dim=embed_dim,
                     n_head=n_head
                 )
                 for idx in range(n_layer)
@@ -203,4 +196,4 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
             neighbor_edge_ft=neighbor_edge_ft,
             neighbor_mask=neighbor_mask
         ) # [n_tar,output_dim]
-        return output 
+        return output

@@ -11,7 +11,8 @@ class DataUtils:
                 "enron",
                 "wikipedia",
                 "reddit"
-            ]
+            ],
+            directed:bool=False
         ):
         """
         ZENODO link: https://zenodo.org/records/8267830
@@ -22,14 +23,15 @@ class DataUtils:
         2. Check bipartite
         3. Preprocess timestamp to unix timestamp second 
         4. Remove self-loop, timestamp 기준으로 오름차순 정렬
-        5. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
-        6. Remap edge_id
-        7. Remap node_id
+        5. undirected·non-bipartite 그래프는 같은 timestamp의 역방향 edge 중 첫 edge만 유지
+        6. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
+        7. Remap edge_id
+        8. Remap node_id
         """
         ### 1. Load graph_df, node_ft, edge_ft
-        graph_df_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"ml_{dataset_name}.csv")
-        node_ft_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"ml_{dataset_name}_node.npy")
-        edge_ft_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"ml_{dataset_name}.npy")
+        graph_df_path=os.path.join(BASE_PATH,f"temporal_graph","ZENODO",dataset_name,f"ml_{dataset_name}.csv")
+        node_ft_path=os.path.join(BASE_PATH,f"temporal_graph","ZENODO",dataset_name,f"ml_{dataset_name}_node.npy")
+        edge_ft_path=os.path.join(BASE_PATH,f"temporal_graph","ZENODO",dataset_name,f"ml_{dataset_name}.npy")
         graph_df=pd.read_csv(
             graph_df_path,
             index_col=0,
@@ -57,11 +59,22 @@ class DataUtils:
             .reset_index(drop=True)
         )
 
-        ### 5. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
+        ### 5. undirected·non-bipartite 그래프는 같은 timestamp의 역방향 edge 중 첫 edge만 유지
+        if not directed and not bipartite:
+            undirected_keys=pd.DataFrame({
+                "u": np.minimum(graph_df["u"],graph_df["i"]),
+                "i": np.maximum(graph_df["u"],graph_df["i"]),
+                "t": graph_df["t"],
+            })
+            graph_df=graph_df.loc[
+                ~undirected_keys.duplicated(keep="first")
+            ].reset_index(drop=True)
+
+        ### 6. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
         min_event_time=graph_df["t"].min()
         graph_df["t"]=(graph_df["t"]-min_event_time).astype(np.int64)
 
-        ### 6. Remap edge id
+        ### 7. Remap edge id
         edge_ft=np.vstack([
             np.zeros(
                 (1,edge_ft.shape[1]),
@@ -71,7 +84,7 @@ class DataUtils:
         ])
         graph_df["idx"]=np.arange(1,len(graph_df)+1)
 
-        ### 7. Remap node ID
+        ### 8. Remap node ID
         used_nodes=np.sort(np.unique(graph_df[["u","i"]].to_numpy()))
         node_map={
             old_id:new_id
@@ -92,8 +105,6 @@ class DataUtils:
         ])
         return {
             "graph_df": graph_df,
-            "node_dim": node_ft.shape[1],
-            "edge_dim": edge_ft.shape[1],
             "node_ft": node_ft,
             "edge_ft": edge_ft,
             "bipartite": bipartite
@@ -105,7 +116,8 @@ class DataUtils:
                 "CollegeMsg",
                 "soc-sign-bitcoinotc",
                 "soc-sign-bitcoinalpha"
-            ]
+            ],
+            directed:bool=False
         ):
         """
         Stanford Network Analysis Project (SNAP) link: https://snap.stanford.edu/data
@@ -116,9 +128,10 @@ class DataUtils:
         3. Preprocess bipartite graph dataset
         4. Preprocess timestamp to unix timestamp second 
         5. Remove self-loop, timestamp 기준으로 오름차순 정렬
-        6. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
-        7. Remap edge_id
-        8. Remap node_id
+        6. undirected·non-bipartite 그래프는 같은 timestamp의 역방향 edge 중 첫 edge만 유지
+        7. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
+        8. Remap edge_id
+        9. Remap node_id
         """
         bipartite_dataset=(
             "act-mooc",
@@ -129,7 +142,7 @@ class DataUtils:
         ### 2. Load graph_df (node_ft, edge_ft if exists.)
         match dataset_name:
             case "CollegeMsg":
-                dataset_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"{dataset_name}.txt")
+                dataset_path=os.path.join(BASE_PATH,f"temporal_graph","SNAP",dataset_name,f"{dataset_name}.txt")
                 graph_df=pd.read_csv(
                     dataset_path,
                     header=None,
@@ -140,7 +153,7 @@ class DataUtils:
                 node_ft=None
                 edge_ft=None
             case "soc-sign-bitcoinotc"|"soc-sign-bitcoinalpha":
-                dataset_path=os.path.join(BASE_PATH,f"temporal_graph",dataset_name,f"{dataset_name}.csv")
+                dataset_path=os.path.join(BASE_PATH,f"temporal_graph","SNAP",dataset_name,f"{dataset_name}.csv")
                 graph_df=pd.read_csv(
                     dataset_path,
                     header=None,
@@ -166,11 +179,22 @@ class DataUtils:
             .reset_index(drop=True)
         )
 
-        ### 6. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
+        ### 6. undirected·non-bipartite 그래프는 같은 timestamp의 역방향 edge 중 첫 edge만 유지
+        if not directed and not bipartite:
+            undirected_keys=pd.DataFrame({
+                "u": np.minimum(graph_df["u"],graph_df["i"]),
+                "i": np.maximum(graph_df["u"],graph_df["i"]),
+                "t": graph_df["t"],
+            })
+            graph_df=graph_df.loc[
+                ~undirected_keys.duplicated(keep="first")
+            ].reset_index(drop=True)
+
+        ### 7. timestamp range를 0 ~ (max_t-min_t)로 상대적 조정
         min_event_time=graph_df["t"].min()
         graph_df["t"]=(graph_df["t"]-min_event_time).astype(np.int64)
 
-        ### 7. Remap edge_id
+        ### 8. Remap edge_id
         if edge_ft is not None:
             edge_ft=np.vstack([
                 np.zeros((1,edge_ft.shape[1]),dtype=edge_ft.dtype),
@@ -178,7 +202,7 @@ class DataUtils:
             ])
         graph_df["idx"]=np.arange(1,len(graph_df)+1)
 
-        ### 8. Remap node_id
+        ### 9. Remap node_id
         used_nodes=np.sort(np.unique(graph_df[["u","i"]].to_numpy()))
         node_map={
             old_id:new_id
@@ -194,8 +218,6 @@ class DataUtils:
             ])
         return {
             "graph_df": graph_df,
-            "node_dim": node_ft.shape[1] if node_ft is not None else 0,
-            "edge_dim": edge_ft.shape[1] if edge_ft is not None else 0,
             "node_ft": node_ft,
             "edge_ft": edge_ft,
             "bipartite": bipartite
@@ -212,7 +234,8 @@ class DataUtils:
                     "CollegeMsg",
                     "soc-sign-bitcoinotc",
                     "soc-sign-bitcoinalpha"
-                ]
+                ],
+            directed:bool=False
         ):
         ZENODO_dataset=(
             "enron",
@@ -225,6 +248,6 @@ class DataUtils:
             "soc-sign-bitcoinalpha"
         )
         if dataset_name in ZENODO_dataset:
-            return DataUtils._preprocess_ZENODO_dataset(dataset_name=dataset_name)
+            return DataUtils._preprocess_ZENODO_dataset(dataset_name=dataset_name,directed=directed)
         if dataset_name in SNAP_dataset:
-            return DataUtils._preprocess_SNAP_dataset(dataset_name=dataset_name)
+            return DataUtils._preprocess_SNAP_dataset(dataset_name=dataset_name,directed=directed)

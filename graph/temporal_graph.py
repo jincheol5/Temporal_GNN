@@ -4,6 +4,7 @@ import numpy as np
 class TemporalGraph:
     def __init__(self,
             graph_df:pd.DataFrame,
+            directed:bool=False,
             bipartite:bool=False
         ):
         ### graph information
@@ -24,14 +25,15 @@ class TemporalGraph:
             t=int(event.t)
             edge_id=int(event.idx)
 
-            # incoming adj 양방향 저장
+            # incoming adj 저장
             in_adj[dst].append(src)
             in_adj_edge[dst].append(edge_id)
             in_adj_t[dst].append(t)
 
-            in_adj[src].append(dst)
-            in_adj_edge[src].append(edge_id)
-            in_adj_t[src].append(t)
+            if not directed: # undirected graph의 경우 양방향 저장
+                in_adj[src].append(dst)
+                in_adj_edge[src].append(edge_id)
+                in_adj_t[src].append(t)
 
         ### convert list -> numpy array
         # incoming adj
