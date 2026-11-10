@@ -54,6 +54,7 @@ class TGN(nn.Module):
             edge_dim=edge_dim,
             time_dim=time_dim,
             mem_dim=mem_dim,
+            latent_dim=latent_dim,
             embed_dim=embed_dim,
             n_layer=n_layer,
             n_neighbor=n_neighbor,
