@@ -37,8 +37,8 @@ class TGAT(nn.Module):
             n_layer=n_layer,
             n_neighbor=n_neighbor,
             n_head=n_head,
-            use_memory=False,
-            time_encoder=self.time_encoder
+            time_encoder=self.time_encoder,
+            use_memory=False
         )
 
         # decoder
@@ -70,7 +70,7 @@ class TGAT(nn.Module):
         dst_vec=embedded_tar_vec[batch_size:]
         return {
             "src_vec":src_vec,
-            "tst_vec":dst_vec
+            "dst_vec":dst_vec
         }
 
     def forward(self,

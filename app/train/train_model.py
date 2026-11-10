@@ -193,7 +193,14 @@ def main(**kwargs):
     }
     match model_name:
         case "TGAT":
-            pass
+            model=Model_Trainer.train(
+                model=model,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                train_sampler=train_sampler,
+                val_sampler=val_sampler,
+                **model_config
+            )
         case "TGN":
             model=TGN_Trainer.train(
                 model=model,

@@ -86,7 +86,7 @@ class Model_Trainer:
             """
             Validate Model
             """
-            val_result=ModelTrainer.validate(
+            val_result=Model_Trainer.validate(
                 model=model,
                 val_loader=val_loader,
                 val_sampler=val_sampler,
@@ -177,21 +177,21 @@ class Model_Trainer:
                 loss_list.append(batch_loss)
 
                 ### ACC
-                batch_acc=Metric.compute_ACC(
+                batch_acc=MetricUtils.compute_ACC(
                     pred_logit=pred_logit,
                     label=label
                 )
                 acc_list.append(batch_acc)
 
                 ### AP
-                batch_ap=Metric.compute_AP(
+                batch_ap=MetricUtils.compute_AP(
                     pred_logit=pred_logit,
                     label=label
                 )
                 ap_list.append(batch_ap)
 
                 ### AUC
-                batch_auc=Metric.compute_AUC(
+                batch_auc=MetricUtils.compute_AUC(
                     pred_logit=pred_logit,
                     label=label
                 )
@@ -257,21 +257,21 @@ class Model_Trainer:
                 ) # [2B,]
 
                 ### ACC
-                batch_acc=Metric.compute_ACC(
+                batch_acc=MetricUtils.compute_ACC(
                     pred_logit=pred_logit,
                     label=label
                 )
                 acc_list.append(batch_acc)
 
                 ### AP
-                batch_ap=Metric.compute_AP(
+                batch_ap=MetricUtils.compute_AP(
                     pred_logit=pred_logit,
                     label=label
                 )
                 ap_list.append(batch_ap)
 
                 ### AUC
-                batch_auc=Metric.compute_AUC(
+                batch_auc=MetricUtils.compute_AUC(
                     pred_logit=pred_logit,
                     label=label
                 )

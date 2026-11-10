@@ -6,14 +6,14 @@ from .attn_module import TemporalGraphAttn
 
 class GraphEmbeddingModule(nn.Module):
     def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            time_dim:int,
-            mem_dim:int,
-            embed_dim:int,
-            n_layer:int,
-            n_neighbor:int,
-            time_encoder:TimeEncoder,
+            node_dim:int=172,
+            edge_dim:int=172,
+            time_dim:int=100,
+            mem_dim:int=172,
+            embed_dim:int=172,
+            n_layer:int=1,
+            n_neighbor:int=10,
+            time_encoder:TimeEncoder|None=None,
             use_memory:bool=False
         ):
         super().__init__()
@@ -131,16 +131,16 @@ class GraphEmbeddingModule(nn.Module):
 
 class GraphAttnEmbedding(GraphEmbeddingModule):
     def __init__(self,
-            node_dim:int,
-            edge_dim:int,
-            time_dim:int,
-            mem_dim:int, 
-            latent_dim:int,
-            embed_dim:int,
-            n_layer:int,
-            n_neighbor:int,
-            n_head:int,
-            time_encoder:TimeEncoder,
+            node_dim:int=172,
+            edge_dim:int=172,
+            time_dim:int=100,
+            mem_dim:int=172, 
+            latent_dim:int=172,
+            embed_dim:int=172,
+            n_layer:int=1,
+            n_neighbor:int=10,
+            n_head:int=2,
+            time_encoder:TimeEncoder|None=None,
             use_memory:bool=False
         ):
         super(GraphAttnEmbedding,self).__init__(
