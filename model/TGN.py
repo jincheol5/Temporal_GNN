@@ -92,11 +92,16 @@ class TGN(nn.Module):
         pre_msg_t=pre_msg_store["pre_msg_t"]
 
         # update memory about pre_msg_store
-        self.memory_updater.update_memory(
+        updated_result=self.memory_updater.update_memory(
             node=node,
             msg=pre_msg,
             msg_t=pre_msg_t,
             mem_vec=self.memory.mem_vec
+        )
+        self.memory.update_memory_state(
+            node=updated_result["node"],
+            mem_vec=updated_result["mem_vec"],
+            mem_t=updated_result["mem_t"]
         )
 
     def embedding(self,

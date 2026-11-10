@@ -91,6 +91,9 @@ class TGN_Trainer:
                 loss.backward()
                 optimizer.step()
 
+                ### Detach memory 
+                model.memory.detach_memory()
+
                 ### Set pre_msg_store about current batch eventstream
                 aggr_result=model.memory_updater.get_aggregated_msg(
                     src=pos_src,
@@ -105,9 +108,6 @@ class TGN_Trainer:
                     pre_msg=aggr_result["aggr_msg"],
                     pre_msg_t=aggr_result["aggr_event_t"]
                 )
-
-                ### Detach memory 
-                model.memory.detach_memory()
 
             """
             Validate Model
@@ -173,20 +173,20 @@ class TGN_Trainer:
         val_sampler.set_random_state_seed(seed=kwargs["seed"])
         with torch.no_grad():
             for batch_event in tqdm(val_loader,desc=f"Validate..."):
-                src,dst,event_t,edge=batch_event
-                src=src.to(device)
-                dst=dst.to(device)
-                event_t=event_t.to(device)
-                edge=edge.to(device)
+                pos_src,pos_dst,pos_event_t,pos_edge=batch_event
+                pos_src=pos_src.to(device)
+                pos_dst=pos_dst.to(device)
+                pos_event_t=pos_event_t.to(device)
+                pos_edge=pos_edge.to(device)
 
                 ### Update memory about pre_msg_store
                 model.update_memory()
 
                 ### Negative Sampling
-                neg_dst=val_sampler.random_negative_sampling(src=src,dst=dst)
-                src=torch.cat([src,src],dim=0) 
-                dst=torch.cat([dst,neg_dst],dim=0)
-                event_t=torch.cat([event_t,event_t],dim=0)
+                neg_dst=val_sampler.random_negative_sampling(src=pos_src,dst=pos_dst)
+                src=torch.cat([pos_src,pos_src],dim=0) 
+                dst=torch.cat([pos_dst,neg_dst],dim=0)
+                event_t=torch.cat([pos_event_t,pos_event_t],dim=0)
                 label=torch.cat([
                     torch.ones_like(neg_dst,dtype=torch.float32),
                     torch.zeros_like(neg_dst,dtype=torch.float32)
@@ -199,6 +199,21 @@ class TGN_Trainer:
                     dst=dst,
                     event_t=event_t
                 ) # [2B,]
+
+                ### Set pre_msg_store about current batch eventstream
+                aggr_result=model.memory_updater.get_aggregated_msg(
+                    src=pos_src,
+                    dst=pos_dst,
+                    edge=pos_edge,
+                    event_t=pos_event_t,
+                    mem_vec=model.memory.mem_vec,
+                    mem_t=model.memory.mem_t
+                )
+                model.memory.update_pre_msg_store(
+                    node=aggr_result["aggr_node"],
+                    pre_msg=aggr_result["aggr_msg"],
+                    pre_msg_t=aggr_result["aggr_event_t"]
+                )
 
                 ### Loss
                 criterion=nn.BCEWithLogitsLoss()
@@ -235,7 +250,7 @@ class TGN_Trainer:
 
     @staticmethod
     def test(
-            model:nn.Module,
+            model:TGN,
             test_loader:DataLoader,
             test_sampler:Sampler,
             **kwargs
@@ -261,20 +276,20 @@ class TGN_Trainer:
         auc_list=[]
         with torch.no_grad():
             for batch_event in tqdm(test_loader,desc=f"Test..."):
-                src,dst,event_t,edge=batch_event
-                src=src.to(device)
-                dst=dst.to(device)
-                event_t=event_t.to(device)
-                edge=edge.to(device)
+                pos_src,pos_dst,pos_event_t,pos_edge=batch_event
+                pos_src=pos_src.to(device)
+                pos_dst=pos_dst.to(device)
+                pos_event_t=pos_event_t.to(device)
+                pos_edge=pos_edge.to(device)
 
                 ### Update memory about pre_msg_store
                 model.update_memory()
 
                 ### Negative Sampling
-                neg_dst=test_sampler.random_negative_sampling(src=src,dst=dst)
-                src=torch.cat([src,src],dim=0) 
-                dst=torch.cat([dst,neg_dst],dim=0)
-                event_t=torch.cat([event_t,event_t],dim=0)
+                neg_dst=test_sampler.random_negative_sampling(src=pos_src,dst=pos_dst)
+                src=torch.cat([pos_src,pos_src],dim=0) 
+                dst=torch.cat([pos_dst,neg_dst],dim=0)
+                event_t=torch.cat([pos_event_t,pos_event_t],dim=0)
                 label=torch.cat([
                     torch.ones_like(neg_dst,dtype=torch.float32),
                     torch.zeros_like(neg_dst,dtype=torch.float32)
@@ -287,6 +302,21 @@ class TGN_Trainer:
                     dst=dst,
                     event_t=event_t
                 ) # [2B,]
+
+                ### Set pre_msg_store about current batch eventstream
+                aggr_result=model.memory_updater.get_aggregated_msg(
+                    src=pos_src,
+                    dst=pos_dst,
+                    edge=pos_edge,
+                    event_t=pos_event_t,
+                    mem_vec=model.memory.mem_vec,
+                    mem_t=model.memory.mem_t
+                )
+                model.memory.update_pre_msg_store(
+                    node=aggr_result["aggr_node"],
+                    pre_msg=aggr_result["aggr_msg"],
+                    pre_msg_t=aggr_result["aggr_event_t"]
+                )
 
                 ### ACC
                 batch_acc=MetricUtils.compute_ACC(
