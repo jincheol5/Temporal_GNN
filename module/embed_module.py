@@ -58,7 +58,7 @@ class GraphEmbeddingModule(nn.Module):
             tar_ft=torch.concat(
                 [tar_ft,tar_mem],
                 dim=-1
-            ) # [n_tar,node_dim+mem_dim] or [n_tar,1+node_dim+mem_dim]
+            ) # [n_tar,node_dim+mem_dim]
 
         if n_layer==0:
             return tar_ft
@@ -75,11 +75,11 @@ class GraphEmbeddingModule(nn.Module):
                 tar_t=tar_t,
                 n_neighbor=self.n_neighbor
             )
-            neighbor=temporal_neighbor["neighbor"]
-            neighbor_mask=temporal_neighbor["neighbor_mask"]
-            neighbor_t=temporal_neighbor["neighbor_t"]
-            neighbor_ts=temporal_neighbor["neighbor_ts"]
-            neighbor_edge=temporal_neighbor["neighbor_edge"]
+            neighbor=temporal_neighbor["neighbor"] # [n_tar,n_neighbor]
+            neighbor_mask=temporal_neighbor["neighbor_mask"] # [n_tar,n_neighbor]
+            neighbor_t=temporal_neighbor["neighbor_t"] # [n_tar,n_neighbor]
+            neighbor_ts=temporal_neighbor["neighbor_ts"] # [n_tar,n_neighbor]
+            neighbor_edge=temporal_neighbor["neighbor_edge"] # [n_tar,n_neighbor]
 
             # flatten for neighbor embedding
             n_tar,n_neighbor=neighbor.size()
@@ -135,6 +135,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
             edge_dim:int,
             time_dim:int,
             mem_dim:int, 
+            latent_dim:int,
             embed_dim:int,
             n_layer:int,
             n_neighbor:int,
@@ -161,6 +162,7 @@ class GraphAttnEmbedding(GraphEmbeddingModule):
                     input_dim=layer_0_input_dim if idx==0 else embed_dim,
                     edge_dim=edge_dim,
                     time_dim=time_dim,
+                    latent_dim=latent_dim,
                     embed_dim=embed_dim,
                     n_head=n_head
                 )
