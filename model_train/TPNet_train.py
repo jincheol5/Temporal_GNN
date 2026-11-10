@@ -3,7 +3,7 @@ import torch.nn as nn
 import mlflow
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from utils import EarlyStopper,Sampler,Metric
+from utils import EarlyStopper,Sampler,MetricUtils
 from model import TPNet
 
 class TPNet_Trainer:

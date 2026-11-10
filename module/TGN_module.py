@@ -71,7 +71,7 @@ class Memory(nn.Module):
         self.pre_msg_t[node]=pre_msg_t
         self.pre_msg_mask[node]=True
 
-    def get_pre_msg(self):
+    def get_pre_msg_store(self):
         return {
             "node":torch.where(self.pre_msg_mask)[0],
             "pre_msg":self.pre_msg[self.pre_msg_mask],
@@ -142,7 +142,7 @@ class MemoryUpdater(nn.Module):
         ).unsqueeze(-1)
         dst_ts_vec=self.time_encoder(dst_ts)
 
-        edge_ft=self.graph.get_edge_ft(edge=edge)
+        edge_ft=self.graph.edge_ft[edge]
 
         src_raw_msg=torch.concat(
             [

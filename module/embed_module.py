@@ -104,7 +104,7 @@ class GraphEmbeddingModule(nn.Module):
             neighbor_vec=neighbor_vec.reshape(n_tar,n_neighbor,-1) # -> [n_tar,n_neighbor,tar_dim] or [n_tar,n_neighbor,output_dim]
 
             # get edge feature
-            neighbor_edge_ft=self.graph.get_edge_ft(edge=neighbor_edge) # [n_tar,n_neighbor,edge_dim]
+            neighbor_edge_ft=self.graph.edge_ft[neighbor_edge] # [n_tar,n_neighbor,edge_dim]
 
             ### Aggregation
             updated_tar_vec=self.aggregate(

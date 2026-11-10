@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from graph import DyGFormer_Graph
-from module import TimeEncoder,TransformerEncoderBlock,DyGFormer_Module,MLP
+from module import TimeEncoder,DyGFormer_Module,MLP
 
 class DyGFormer(nn.Module):
     def __init__(self,

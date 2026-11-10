@@ -3,9 +3,9 @@ import torch.nn as nn
 import mlflow
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from utils import EarlyStopper,Sampler,Metric
+from utils import EarlyStopper,Sampler,MetricUtils
 
-class ModelTrainer:
+class Model_Trainer:
     @staticmethod
     def train(
             model:nn.Module,

@@ -80,7 +80,7 @@ class TrainUtils:
         torch.backends.cudnn.benchmark=False # cuDNN이 여러 알고리즘의 속도를 측정해 실행 알고리즘을 선택하는 기능 끔
 
     @staticmethod
-    def generate_model_graph(
+    def set_model_graph(
             model_name:Literal[
                 "TGAT",
                 "TGN",
@@ -90,16 +90,22 @@ class TrainUtils:
                 "TPNet"
             ],
             graph_df:pd.DataFrame,
+            directed:bool=False,
+            bipartite:bool=False,
+            one_hot:bool=False,
             node_ft:np.ndarray=None,
             edge_ft:np.ndarray=None,
-            node_dim:int=32,
-            edge_dim:int=32,
+            node_dim:int=172,
+            edge_dim:int=172,
             **graph_config
         ):
         match model_name:
             case "TGAT"|"TGN"|"TPNet":
                 graph=GNN_Graph(
                     graph_df=graph_df,
+                    directed=directed,
+                    bipartite=bipartite,
+                    one_hot=one_hot,
                     node_ft=node_ft,
                     edge_ft=edge_ft,
                     node_dim=node_dim,
@@ -108,31 +114,18 @@ class TrainUtils:
             case "GraphMixer":
                 graph=GNN_Graph(
                     graph_df=graph_df,
-                    node_ft=node_ft,
-                    edge_ft=edge_ft,
-                    node_dim=node_dim,
-                    edge_dim=edge_dim,
-                    one_hot=True
-                )
-            case "CAW-N":
-                graph=CAW_N_Graph(
-                    graph_df=graph_df,
-                    node_ft=node_ft,
-                    edge_ft=edge_ft,
-                    node_dim=node_dim,
-                    edge_dim=edge_dim,
-                    n_walk=graph_config["n_walk"],
-                    walk_len=graph_config["walk_len"],
-                    alpha=graph_config["alpha"]
-                )
-            case "DyGFormer":
-                graph=DyGFormer_Graph(
-                    graph_df=graph_df,
+                    directed=directed,
+                    bipartite=bipartite,
+                    one_hot=True,
                     node_ft=node_ft,
                     edge_ft=edge_ft,
                     node_dim=node_dim,
                     edge_dim=edge_dim
                 )
+            case "CAW-N":
+                pass
+            case "DyGFormer":
+                pass
         return graph
 
     @staticmethod
@@ -162,25 +155,33 @@ class TrainUtils:
     @staticmethod
     def set_sampler(
             graph_df:pd.DataFrame,
+            n_node:int,
+            bipartite:bool,
             purpose:Literal["train","val","test"],
             seed:int|None=None
         ):
-        train_df,val_df,test_df=TrainUtils.split_graph_df(graph_df=graph_df)
+        train_df,val_df,_=TrainUtils.split_graph_df(graph_df=graph_df)
+        if bipartite:
+            train_dst_list=train_df["i"].tolist()
+            val_dst_list=val_df["i"].tolist()
+            train_candidates=sorted(set(train_dst_list))
+            val_candidates=sorted(set(train_dst_list+val_dst_list))
+            test_candidates=list(range(graph_df["u"].max()+1,graph_df["i"].max()+1))
+            test_candidates=sorted(set(test_candidates))
+        else:
+            train_src_list=train_df["u"].tolist()
+            train_dst_list=train_df["i"].tolist()
+            val_src_list=val_df["u"].tolist()
+            val_dst_list=val_df["i"].tolist()
+            train_candidates=sorted(set(train_src_list+train_dst_list))
+            val_candidates=sorted(set(train_candidates+val_src_list+val_dst_list))
+            test_candidates=list(range(1,n_node+1))
+            test_candidates=sorted(set(test_candidates))
         match purpose:
             case "train":
-                train_dataset=TemporalGraphDataset(graph_df=train_df)
-                dst_list=train_dataset.dst.tolist()
+                sampler=Sampler(candidates=train_candidates,seed=seed)
             case "val":
-                train_dataset=TemporalGraphDataset(graph_df=train_df)
-                val_dataset=TemporalGraphDataset(graph_df=val_df)
-                dst_list=train_dataset.dst.tolist()+val_dataset.dst.tolist()
+                sampler=Sampler(candidates=val_candidates,seed=seed)
             case "test":
-                train_dataset=TemporalGraphDataset(graph_df=train_df)
-                val_dataset=TemporalGraphDataset(graph_df=val_df)
-                test_dataset=TemporalGraphDataset(graph_df=test_df)
-                dst_list=train_dataset.dst.tolist()+val_dataset.dst.tolist()+test_dataset.dst.tolist()
-        if seed is None:
-            sampler=Sampler(dst_list=dst_list)
-        else:
-            sampler=Sampler(dst_list=dst_list,seed=seed)
+                sampler=Sampler(candidates=test_candidates,seed=seed)
         return sampler

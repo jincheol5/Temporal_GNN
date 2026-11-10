@@ -4,19 +4,22 @@ import torch
 class Sampler:
     """
     Train
-    - train eventstream에서 등장한 dst들을 후보로 사용.  
+    - train eventstream에서 등장한 node들을 후보로 사용.  
     
     Val
-    - train, val eventstream에서 등장한 dst들을 후보로 사용.  
+    - train, val eventstream에서 등장한 node들을 후보로 사용.  
 
     Test
-    - all eventstream에서 등장한 dst들을 후보로 사용.
+    - all eventstream에서 등장한 node들을 후보로 사용.
+    
+    Bipartite Graph의 경우, node 후보들은 max_i+1 ~ max_u 범위 안.
+    -> TrainUtils.set_sampler 에서 처리.
     """
     def __init__(self,
-            dst_list:list,
+            candidates:list,
             seed:int|None=None
         ):
-        self.dst_candidate=np.unique(dst_list)
+        self.dst_candidate=np.unique(candidates)
         self.set_random_state_seed(seed=seed)
 
     def set_random_state_seed(self,seed:int|None):

@@ -16,8 +16,8 @@ class TGN(nn.Module):
             n_layer:int,
             n_neighbor:int,
             n_head:int,
-            msg_fn:Literal["concat","mlp"]="concat",
-            aggr_fn:Literal["last","mean"]="last"
+            aggr_fn:Literal["last","mean"]="last",
+            msg_fn:Literal["concat","mlp"]="concat"
         ):
         super().__init__()
         self.node_dim=node_dim
@@ -31,9 +31,9 @@ class TGN(nn.Module):
         self.n_layer=n_layer
         self.n_neighbor=n_neighbor
         self.n_head=n_head
-        self.msg_fn=msg_fn
         self.aggr_fn=aggr_fn
-
+        self.msg_fn=msg_fn
+        
         # time encoder
         self.time_encoder=TimeEncoder(time_dim=time_dim)
 
@@ -41,11 +41,11 @@ class TGN(nn.Module):
         self.memory_updater=GRUMemoryUpdater(
             mem_dim=mem_dim,
             edge_dim=edge_dim,
-            msg_dim=msg_dim,
             time_dim=time_dim,
+            msg_dim=msg_dim,
             time_encoder=self.time_encoder,
-            msg_fn=msg_fn,
-            aggr_fn=aggr_fn
+            aggr_fn=aggr_fn,
+            msg_fn=msg_fn
         )
 
         # encoder
@@ -53,14 +53,13 @@ class TGN(nn.Module):
             node_dim=node_dim,
             edge_dim=edge_dim,
             time_dim=time_dim,
-            latent_dim=latent_dim,
             mem_dim=mem_dim,
             embed_dim=embed_dim,
             n_layer=n_layer,
             n_neighbor=n_neighbor,
             n_head=n_head,
-            use_memory=True,
-            time_encoder=self.time_encoder
+            time_encoder=self.time_encoder,
+            use_memory=True
         )
 
         # decoder
@@ -73,59 +72,53 @@ class TGN(nn.Module):
     def set_graph(self,graph:GNN_Graph):
         self.graph=graph
         self.n_node=graph.n_node
-        self.memory=Memory(n_node=self.n_node,mem_dim=self.mem_dim)
+        self.memory=Memory(
+            n_node=self.n_node,
+            mem_dim=self.mem_dim,
+            edge_dim=self.edge_dim,
+            time_dim=self.time_dim
+        )
         self.encoder.set_graph(graph=graph)
         self.memory_updater.set_graph(graph=graph)
 
-    def update_memory(self,
-            src:torch.Tensor,
-            dst:torch.Tensor,
-            edge:torch.Tensor,
-            event_t:torch.Tensor
-        ):
+    def update_memory(self):
         """
-        eventstream에 대해서 model의 memory state 업데이트
+        model의 memory state 업데이트
         """
-        mem_vec=self.memory.get_mem_vec()
-        mem_t=self.memory.get_mem_t()
-        updated_result=self.memory_updater.update_memory(
-            src=src,
-            dst=dst,
-            edge=edge,
-            event_t=event_t,
-            mem_vec=mem_vec,
-            mem_t=mem_t
-        )
-        updated_node=updated_result["node"]
-        updated_mem_vec=updated_result["mem_vec"]
-        updated_mem_t=updated_result["mem_t"]
-        self.memory.update_memory_state(
-            node=updated_node,
-            mem_vec=updated_mem_vec,
-            mem_t=updated_mem_t
+        # get pre_msg_store
+        pre_msg_store=self.memory.get_pre_msg_store()
+        node=pre_msg_store["node"]
+        pre_msg=pre_msg_store["pre_msg"]
+        pre_msg_t=pre_msg_store["pre_msg_t"]
+
+        # update memory about pre_msg_store
+        self.memory_updater.update_memory(
+            node=node,
+            msg=pre_msg,
+            msg_t=pre_msg_t,
+            mem_vec=self.memory.mem_vec
         )
 
     def embedding(self,
-                src:torch.Tensor,
-                dst:torch.Tensor,
-                event_t:torch.Tensor
-            ):
-            batch_size=src.size(0)
-            tar=torch.concat([src,dst],dim=0) 
-            tar_t=torch.cat([event_t,event_t],dim=0)
-            mem_vec=self.memory.get_mem_vec() 
-            embedded_tar_vec=self.encoder.compute_embedding(
-                tar=tar,
-                tar_t=tar_t,
-                mem_vec=mem_vec,
-                n_layer=self.n_layer
-            )
-            src_vec=embedded_tar_vec[:batch_size]
-            dst_vec=embedded_tar_vec[batch_size:]
-            return {
-                "src_vec":src_vec,
-                "tst_vec":dst_vec
-            }
+            src:torch.Tensor,
+            dst:torch.Tensor,
+            event_t:torch.Tensor
+        ):
+        batch_size=src.size(0)
+        tar=torch.concat([src,dst],dim=0) 
+        tar_t=torch.cat([event_t,event_t],dim=0)
+        embedded_tar_vec=self.encoder.compute_embedding(
+            tar=tar,
+            tar_t=tar_t,
+            mem_vec=self.memory.mem_vec,
+            n_layer=self.n_layer
+        )
+        src_vec=embedded_tar_vec[:batch_size]
+        dst_vec=embedded_tar_vec[batch_size:]
+        return {
+            "src_vec":src_vec,
+            "dst_vec":dst_vec
+        }
 
     def forward(self,
             src:torch.Tensor,
