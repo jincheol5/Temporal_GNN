@@ -65,10 +65,14 @@ class DyGFormer(nn.Module):
         # transformer encoder
         self.transformer_encoders=nn.ModuleList(
             [
-                TransformerEncoderBlock(
-                    attn_dim=4*common_dim,
-                    latent_dim=latent_dim,
-                    n_head=n_head
+                nn.TransformerEncoderLayer(
+                    d_model=4*common_dim,
+                    nhead=n_head,
+                    dim_feedforward=latent_dim,
+                    dropout=0.1,
+                    activation="relu",
+                    batch_first=True,
+                    norm_first=True
                 )
                 for _ in range(n_layer)
             ]

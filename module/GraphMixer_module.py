@@ -30,7 +30,7 @@ class GraphMixer_Module:
             n_neighbor=self.n_last_event
         )
         neighbor_edge=temporal_neighbor["neighbor_edge"].to(device)
-        temporal_link_matrix=self.graph.get_edge_ft(edge=neighbor_edge)
+        temporal_link_matrix=self.graph.edge_ft[neighbor_edge.to(self.graph.edge_ft.device)]
         return temporal_link_matrix.to(device)
 
     def get_encoded_node_vec(self,
@@ -62,10 +62,10 @@ class GraphMixer_Module:
         unique_mask=torch.ones_like(neighbor_mask)
         unique_mask[:,1:]=neighbor[:,1:]!=neighbor[:,:-1]
         neighbor_mask=neighbor_mask & unique_mask & (neighbor!=tar.unsqueeze(-1))
-        neighbor_vec=self.graph.get_node_ft(node=neighbor)
+        neighbor_vec=self.graph.node_ft[neighbor.to(self.graph.node_ft.device)].to(device)
 
         # 패딩과 중복을 제외한 실제 이웃의 수로 나누어 mean-pooling.
         neighbor_vec=neighbor_vec.masked_fill(~neighbor_mask.unsqueeze(-1),0)
         n_neighbor=neighbor_mask.sum(dim=1,keepdim=True).clamp(min=1)
-        encoded_tar_vec=self.graph.get_node_ft(node=tar)+neighbor_vec.sum(dim=1)/n_neighbor
+        encoded_tar_vec=self.graph.node_ft[tar.to(self.graph.node_ft.device)].to(device)+neighbor_vec.sum(dim=1)/n_neighbor
         return encoded_tar_vec.to(device)

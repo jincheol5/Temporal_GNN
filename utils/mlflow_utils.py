@@ -5,6 +5,15 @@ from pathlib import Path
 BASE_PATH=os.path.join("..","data","Temporal_GNN") # 상대 경로
 os.makedirs(BASE_PATH,exist_ok=True)
 class MLFlowUtils:
+    """
+    1. Tracking Store & Artifact Store 설정
+    2. Experiment 생성 or 선택
+    3. Run 생성
+    4. 파라미터 기록
+    5. 학습 및 Metric 기록
+    6. 모델 저장
+    7. Run 종료
+    """
     @staticmethod
     def setup(experiment_name:str):
         ### Tracking DB 경로 설정

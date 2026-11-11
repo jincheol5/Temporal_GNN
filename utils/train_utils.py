@@ -6,7 +6,7 @@ import torch
 from typing import Literal
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from graph import GNN_Graph,DyGFormer_Graph,CAW_N_Graph
+from graph import GNN_Graph,CAW_N_Graph,DyGFormer_Graph
 from .sampling import Sampler
 
 class TemporalGraphDataset(Dataset):
@@ -97,10 +97,10 @@ class TrainUtils:
             edge_ft:np.ndarray=None,
             node_dim:int=172,
             edge_dim:int=172,
-            **graph_config
+            **kwargs
         ):
         match model_name:
-            case "TGAT"|"TGN"|"TPNet":
+            case "TGAT"|"TGN"|"GraphMixer"|"TPNet":
                 graph=GNN_Graph(
                     graph_df=graph_df,
                     directed=directed,
@@ -111,21 +111,31 @@ class TrainUtils:
                     node_dim=node_dim,
                     edge_dim=edge_dim
                 )
-            case "GraphMixer":
-                graph=GNN_Graph(
+            case "CAW-N":
+                graph=CAW_N_Graph(
                     graph_df=graph_df,
                     directed=directed,
                     bipartite=bipartite,
-                    one_hot=True,
+                    one_hot=one_hot,
+                    node_ft=node_ft,
+                    edge_ft=edge_ft,
+                    node_dim=node_dim,
+                    edge_dim=edge_dim,
+                    n_walk=kwargs["n_walk"],
+                    walk_len=kwargs["walk_len"],
+                    alpha=kwargs["alpha"]
+                )
+            case "DyGFormer":
+                graph=DyGFormer_Graph(
+                    graph_df=graph_df,
+                    directed=directed,
+                    bipartite=bipartite,
+                    one_hot=one_hot,
                     node_ft=node_ft,
                     edge_ft=edge_ft,
                     node_dim=node_dim,
                     edge_dim=edge_dim
                 )
-            case "CAW-N":
-                pass
-            case "DyGFormer":
-                pass
         return graph
 
     @staticmethod

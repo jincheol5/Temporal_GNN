@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import mlflow
@@ -48,10 +49,13 @@ class TGN_Trainer:
         """
         Train model
         """
+        best_metrics=None
         for epoch in tqdm(range(kwargs["epoch"]),desc=f"Model Training..."):
             ### Initialize memory and pre_msg_store
             model.memory.init_memory()
             model.memory.init_pre_msg_store()
+
+            epoch_train_loss_list=[]
 
             model.train()
             for batch_event in tqdm(train_loader,desc=f"Training epoch {epoch+1}..."):
@@ -85,6 +89,7 @@ class TGN_Trainer:
                 ### Loss
                 criterion=nn.BCEWithLogitsLoss()
                 loss=criterion(pred_logit,label)
+                epoch_train_loss_list.append(loss.item())
 
                 ### Backward
                 optimizer.zero_grad()
@@ -126,9 +131,33 @@ class TGN_Trainer:
             print(f"{epoch+1} epoch  Validate AUC: {val_auc}")
 
             """
+            MLFlow tracking
+            """
+            if kwargs["use_mlflow"]:
+                # epoch train loss 평균 계산 
+                train_loss=np.mean(epoch_train_loss_list)
+                mlflow.log_metrics({
+                    "train_loss":train_loss,
+                    "val_loss":val_result["loss"],
+                    "val_acc":val_result["acc"],
+                    "val_ap":val_result["ap"],
+                    "val_auc":val_result["auc"]
+                },step=epoch+1)
+
+            """
             Check Early Stop
             """
             val_loss=val_result["loss"]
+            if np.isfinite(val_loss) and (
+                best_metrics is None or val_loss<best_metrics["best_val_loss"]
+            ):
+                best_metrics={
+                    "best_epoch":epoch+1,
+                    "best_val_loss":val_loss,
+                    "best_val_acc":val_acc,
+                    "best_val_ap":val_ap,
+                    "best_val_auc":val_auc
+                }
             print(f"{epoch+1} epoch Validate Loss: {val_loss}")
             if kwargs["early_stop"]:
                 pre_model=early_stop(
@@ -139,8 +168,14 @@ class TGN_Trainer:
                     model=pre_model
                     print(f"Early Stop in epoch {epoch+1}")
                     break
+
         if kwargs["early_stop"] and early_stop.best_state is not None:
             model.load_state_dict(early_stop.best_state)
+
+        if kwargs["use_mlflow"]:
+            if best_metrics is not None:
+                mlflow.log_metrics(best_metrics,step=best_metrics["best_epoch"])
+
         return model
 
     @staticmethod
@@ -342,5 +377,5 @@ class TGN_Trainer:
         return {
             "acc":sum(acc_list)/len(acc_list),
             "ap":sum(ap_list)/len(ap_list),
-            "auc":sum(auc_list)/len(auc_list),
+            "auc":sum(auc_list)/len(auc_list)
         }

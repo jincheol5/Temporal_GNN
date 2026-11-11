@@ -90,8 +90,8 @@ class TPNet(nn.Module):
         edge=history["neighbor_edge"]
         mask=history["neighbor_mask"]
 
-        node_ft=self.graph.get_node_ft(neighbor)
-        edge_ft=self.graph.get_edge_ft(edge)
+        node_ft=self.graph.node_ft[neighbor.to(self.graph.node_ft.device)].to(src.device)
+        edge_ft=self.graph.edge_ft[edge.to(self.graph.edge_ft.device)].to(src.device)
         time_ft=self.time_encoder(history["neighbor_ts"].unsqueeze(-1))
 
         # For every history neighbor w, concatenate f_{u,w} and f_{v,w}.

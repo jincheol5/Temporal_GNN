@@ -9,8 +9,8 @@ class DyGFormer_Module:
     def set_graph(self,graph:DyGFormer_Graph):
         self.graph=graph
         self.n_node=graph.n_node
-        self.node_ft=graph.get_node_ft().to(device="cpu")
-        self.edge_ft=graph.get_edge_ft().to(device="cpu")
+        self.node_ft=graph.node_ft.to(device="cpu")
+        self.edge_ft=graph.edge_ft.to(device="cpu")
 
     def get_padded_seq_vec(self,
             node_seq_list:list,

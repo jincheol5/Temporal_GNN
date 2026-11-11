@@ -154,16 +154,16 @@ class CAW_N(nn.Module):
             [edge for walks in batch_dst_walks for walk in walks for _,_,edge in walk],
             dtype=torch.long
         ).reshape(*shape)
-        batch_src_node_ft=self.graph.get_node_ft(batch_src_node_ids.to(self.graph.node_ft.device)).to(
+        batch_src_node_ft=self.graph.node_ft[batch_src_node_ids.to(self.graph.node_ft.device)].to(
             device=device,dtype=batch_src_caws_vec.dtype
         )
-        batch_dst_node_ft=self.graph.get_node_ft(batch_dst_node_ids.to(self.graph.node_ft.device)).to(
+        batch_dst_node_ft=self.graph.node_ft[batch_dst_node_ids.to(self.graph.node_ft.device)].to(
             device=device,dtype=batch_dst_caws_vec.dtype
         )
-        batch_src_edge_ft=self.graph.get_edge_ft(batch_src_edge_ids.to(self.graph.edge_ft.device)).to(
+        batch_src_edge_ft=self.graph.edge_ft[batch_src_edge_ids.to(self.graph.edge_ft.device)].to(
             device=device,dtype=batch_src_caws_vec.dtype
         )
-        batch_dst_edge_ft=self.graph.get_edge_ft(batch_dst_edge_ids.to(self.graph.edge_ft.device)).to(
+        batch_dst_edge_ft=self.graph.edge_ft[batch_dst_edge_ids.to(self.graph.edge_ft.device)].to(
             device=device,dtype=batch_dst_caws_vec.dtype
         )
         # 시작 위치에는 이동 간선이 없으므로 feature table의 0행 값과 관계없이 영벡터 처리.
