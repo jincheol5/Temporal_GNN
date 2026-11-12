@@ -146,7 +146,7 @@ def main(**kwargs):
 
             ### save model
             if save_model:
-                mlflow.pytorch.log_model(pytorch_model=model,name="model")
+                MLFlowUtils.save_model(model=model,artifact_name=model_name)
 
             # mlflow run_id
             run_id=run.info.run_id

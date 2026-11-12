@@ -1,13 +1,22 @@
 #!/bin/bash
 
-python -m app.experiment.train_model --model_name TGAT --seed 1 --lr 0.0001 --dataset_name wikipedia
+DATASETS=(wikipedia)
+SEEDS=(1 2 3)
+LRS=(0.0001 0.0005)
+MODELS=(TGAT TGN CAW-N GraphMixer DyGFormer TPNet)
 
-python -m app.experiment.train_model --model_name TGN --seed 1 --lr 0.0001 --dataset_name wikipedia
+for dataset in "${DATASETS[@]}"; do
+    for seed in "${SEEDS[@]}"; do
+        for lr in "${LRS[@]}"; do
+            for model in "${MODELS[@]}"; do
+                echo "Training: dataset=$dataset, seed=$seed, lr=$lr, model=$model"
 
-python -m app.experiment.train_model --model_name CAW-N --seed 1 --lr 0.0001 --dataset_name wikipedia
-
-python -m app.experiment.train_model --model_name GraphMixer --seed 1 --lr 0.0001 --dataset_name wikipedia --one_hot 1
-
-python -m app.experiment.train_model --model_name DyGFormer --seed 1 --lr 0.0001 --dataset_name wikipedia
-
-python -m app.experiment.train_model --model_name TPNet --seed 1 --lr 0.0001 --dataset_name wikipedia
+                if [ "$model" == "GraphMixer" ]; then
+                    python -m app.experiment.train_model --model_name "$model" --seed "$seed" --lr "$lr" --one_hot 1 --dataset_name "$dataset" --use_mlflow 1 --experiment_name Temporal_GNN --save_model 1
+                else
+                    python -m app.experiment.train_model --model_name "$model" --seed "$seed" --lr "$lr" --dataset_name "$dataset" --use_mlflow 1 --experiment_name Temporal_GNN --save_model 1
+                fi
+            done
+        done
+    done
+done

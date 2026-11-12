@@ -1,5 +1,6 @@
 import os
 import mlflow
+import torch.nn as nn
 from pathlib import Path
 
 BASE_PATH=os.path.join("..","data","Temporal_GNN") # 상대 경로
@@ -43,3 +44,53 @@ class MLFlowUtils:
 
         ### Experiment 설정
         mlflow.set_experiment(experiment_name=experiment_name)
+
+    @staticmethod
+    def search_run_ids(
+            experiment_name:str,
+            model_name:str,
+            dataset_name:str,
+            seed:int,
+            lr:float
+        ):
+        """
+        최신 Run ID부터 정렬된 상태로 반환
+        start_time DESC -> 최신 run부터 내림차순 정렬
+        """
+        runs=mlflow.search_runs(
+            experiment_names=[experiment_name],
+            filter_string=(
+                f"params.model_name = '{model_name}' AND "
+                f"params.dataset_name = '{dataset_name}' AND "
+                f"params.seed = '{seed}' AND "
+                f"params.lr = '{lr}'"
+            ),
+            order_by=["start_time DESC"],
+            output_format="pandas"
+        ) # runs -> pd.DataFrame
+        return runs["run_id"].tolist()
+
+    @staticmethod
+    def save_model(
+            model:nn.Module,
+            artifact_name:str
+        ):
+        model_info=mlflow.pytorch.log_model(pytorch_model=model,name=artifact_name)
+        print(f"Complete to save model!")
+        print(f"Artifact Name: {artifact_name}")
+        print(f"Run ID: {model_info.run_id}")
+        print(f"Model ID: {model_info.model_id}")
+        print(f"Model URI: {model_info.model_uri}",end="\n\n")
+
+    @staticmethod
+    def load_model(
+            run_id:str,
+            artifact_name:str
+        ):
+        """
+        load model using run_id & artifact_name
+        """
+        model=mlflow.pytorch.load_model(
+            model_uri=f"runs:/{run_id}/{artifact_name}"
+        )
+        return model
