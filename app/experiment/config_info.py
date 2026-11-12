@@ -55,12 +55,13 @@ TPNet
 """
 
 DATASET_REGISTRY=[
-    "enron",
-    "wikipedia",
-    "reddit",
-    "CollegeMsg",
-    "soc-sign-bitcoinalpha",
-    "soc-sign-bitcoinotc"
+    "reddit","wikipedia","mooc",
+    "lastfm","enron","SocialEvo",
+    "uci","CollegeMsg","TaobaoSmall",
+    "CanParl","Contacts","Flights",
+    "UNtrade","USLegis","UNvote",
+    "DGraphFin","TaobaoLarge","YoutubeReddit",
+    "YoutubeRedditLarge"
 ]
 
 MODEL_REGISTRY={

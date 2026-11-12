@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATASETS=(wikipedia)
+DATASETS=(wikipedia reddit mooc lastfm enron)
 SEEDS=(1 2 3)
 LRS=(0.0001 0.0005)
 MODELS=(TGAT TGN CAW-N GraphMixer DyGFormer TPNet)

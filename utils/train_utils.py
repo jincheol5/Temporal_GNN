@@ -82,12 +82,8 @@ class TrainUtils:
     @staticmethod
     def set_model_graph(
             model_name:Literal[
-                "TGAT",
-                "TGN",
-                "CAW-N",
-                "GraphMixer",
-                "DyGFormer",
-                "TPNet"
+                "TGAT","TGN","CAW-N",
+                "GraphMixer","DyGFormer","TPNet"
             ],
             graph_df:pd.DataFrame,
             directed:bool=False,

@@ -6,11 +6,15 @@ from typing import Literal
 BASE_PATH=os.path.join("..","data")
 class DataUtils:
     @staticmethod
-    def _preprocess_ZENODO_dataset(
+    def _preprocess_BenchTemp_dataset(
             dataset_name:Literal[
-                "enron",
-                "wikipedia",
-                "reddit"
+                "reddit","wikipedia","mooc",
+                "lastfm","enron","SocialEvo",
+                "uci","CollegeMsg","TaobaoSmall",
+                "CanParl","Contacts","Flights",
+                "UNtrade","USLegis","UNvote",
+                "DGraphFin","TaobaoLarge","YoutubeReddit",
+                "YoutubeRedditLarge"
             ],
             directed:bool=False
         ):
@@ -29,9 +33,9 @@ class DataUtils:
         8. Remap node_id
         """
         ### 1. Load graph_df, node_ft, edge_ft
-        graph_df_path=os.path.join(BASE_PATH,f"temporal_graph","ZENODO",dataset_name,f"ml_{dataset_name}.csv")
-        node_ft_path=os.path.join(BASE_PATH,f"temporal_graph","ZENODO",dataset_name,f"ml_{dataset_name}_node.npy")
-        edge_ft_path=os.path.join(BASE_PATH,f"temporal_graph","ZENODO",dataset_name,f"ml_{dataset_name}.npy")
+        graph_df_path=os.path.join(BASE_PATH,f"temporal_graph","benchtemp_datasets",dataset_name,f"ml_{dataset_name}.csv")
+        node_ft_path=os.path.join(BASE_PATH,f"temporal_graph","benchtemp_datasets",dataset_name,f"ml_{dataset_name}_node.npy")
+        edge_ft_path=os.path.join(BASE_PATH,f"temporal_graph","benchtemp_datasets",dataset_name,f"ml_{dataset_name}.npy")
         graph_df=pd.read_csv(
             graph_df_path,
             index_col=0,
@@ -226,28 +230,36 @@ class DataUtils:
     @staticmethod
     def preprocess_dataset(
             dataset_name:Literal[
-                    # ZENODO
-                    "enron",
-                    "wikipedia",
-                    "reddit",
-                    # SNAP
-                    "CollegeMsg",
-                    "soc-sign-bitcoinotc",
-                    "soc-sign-bitcoinalpha"
-                ],
+                # BenchTemp
+                "reddit","wikipedia","mooc",
+                "lastfm","enron","SocialEvo",
+                "uci","CollegeMsg","TaobaoSmall",
+                "CanParl","Contacts","Flights",
+                "UNtrade","USLegis","UNvote",
+                "DGraphFin","TaobaoLarge","YoutubeReddit",
+                "YoutubeRedditLarge"
+                # SNAP
+                "CollegeMsg",
+                "soc-sign-bitcoinotc",
+                "soc-sign-bitcoinalpha"
+            ],
             directed:bool=False
         ):
-        ZENODO_dataset=(
-            "enron",
-            "wikipedia",
-            "reddit"
+        BenchTemp_dataset=(
+            "reddit","wikipedia","mooc",
+            "lastfm","enron","SocialEvo",
+            "uci","CollegeMsg","TaobaoSmall",
+            "CanParl","Contacts","Flights",
+            "UNtrade","USLegis","UNvote",
+            "DGraphFin","TaobaoLarge","YoutubeReddit",
+            "YoutubeRedditLarge"
         )
         SNAP_dataset=(
             "CollegeMsg",
             "soc-sign-bitcoinotc",
             "soc-sign-bitcoinalpha"
         )
-        if dataset_name in ZENODO_dataset:
-            return DataUtils._preprocess_ZENODO_dataset(dataset_name=dataset_name,directed=directed)
+        if dataset_name in BenchTemp_dataset:
+            return DataUtils._preprocess_BenchTemp_dataset(dataset_name=dataset_name,directed=directed)
         if dataset_name in SNAP_dataset:
             return DataUtils._preprocess_SNAP_dataset(dataset_name=dataset_name,directed=directed)
