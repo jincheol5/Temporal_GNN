@@ -75,7 +75,11 @@ class MLFlowUtils:
             model:nn.Module,
             artifact_name:str
         ):
-        model_info=mlflow.pytorch.log_model(pytorch_model=model,name=artifact_name)
+        model_info=mlflow.pytorch.log_model(
+            pytorch_model=model,
+            name=artifact_name,
+            serialization_format="pickle"
+        )
         print(f"Complete to save model!")
         print(f"Artifact Name: {artifact_name}")
         print(f"Run ID: {model_info.run_id}")
